@@ -1,18 +1,21 @@
 //! Seed Fingerprints according to ZIP 32
 //!
-//! Implements section `Seed Fingerprints` of Shielded Hierarchical Deterministic Wallets (ZIP 32)
+//! Implements section [Seed Fingerprints] of Shielded Hierarchical Deterministic Wallets (ZIP 32).
 //!
-//! [Section Seed Fingerprints]: https://zips.z.cash/zip-0032#seed-fingerprints
+//! [Seed Fingerprints]: https://zips.z.cash/zip-0032#seed-fingerprints
 use blake2b_simd::Params as Blake2bParams;
 
-pub const ZIP32_SEED_FP_PERSONALIZATION: &[u8; 16] = b"Zcash_HD_Seed_FP";
+const ZIP32_SEED_FP_PERSONALIZATION: &[u8; 16] = b"Zcash_HD_Seed_FP";
+
+/// The fingerprint for a wallet's seed bytes, as defined in [ZIP 32].
+///
+/// [ZIP 32]: https://zips.z.cash/zip-0032#seed-fingerprints
 pub struct SeedFingerprint([u8; 32]);
 
 impl SeedFingerprint {
-    /// Return the seed fingerprint of the wallet as defined in
-    /// <https://zips.z.cash/zip-0032#seed-fingerprints> or None
-    /// if the length of `seed_bytes` is less than 32 or
-    /// greater than 252.
+    /// Derives the fingerprint of the given seed bytes.
+    ///
+    /// Returns `None` if the length of `seed_bytes` is less than 32 or greater than 252.
     pub fn from_seed(seed_bytes: &[u8]) -> Option<SeedFingerprint> {
         let seed_len = seed_bytes.len();
 

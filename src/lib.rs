@@ -2,6 +2,8 @@
 //!
 //! [ZIP 32]: https://zips.z.cash/zip-0032
 
+#![deny(missing_docs)]
+#![deny(unsafe_code)]
 #![deny(rustdoc::broken_intra_doc_links)]
 
 use memuse::{self, DynamicUsage};
@@ -94,6 +96,7 @@ impl ChainCode {
     }
 }
 
+/// The index for a particular diversifier.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DiversifierIndex(pub [u8; 11]);
 
@@ -128,10 +131,12 @@ impl TryFrom<DiversifierIndex> for u32 {
 }
 
 impl DiversifierIndex {
+    /// Constructs the zero index.
     pub fn new() -> Self {
         DiversifierIndex([0; 11])
     }
 
+    /// Increments this index, failing on overflow.
     pub fn increment(&mut self) -> Result<(), ()> {
         for k in 0..11 {
             self.0[k] = self.0[k].wrapping_add(1);

@@ -1,4 +1,4 @@
-//! Implementation of [ZIP 32] for hierarchical deterministic key management.
+//! Common types for implementing [ZIP 32] for hierarchical deterministic key management.
 //!
 //! [ZIP 32]: https://zips.z.cash/zip-0032
 

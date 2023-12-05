@@ -156,11 +156,9 @@ impl DiversifierIndex {
 /// A "scope" narrows the visibility or usage to a level below "full".
 ///
 /// Consistent usage of `Scope` enables the user to provide consistent views over a wallet
-/// to other people. For example, a user can give an external [SaplingIvk] to a merchant
-/// terminal, enabling it to only detect "real" transactions from customers and not
-/// internal transactions from the wallet.
-///
-/// [SaplingIvk]: crate::sapling::SaplingIvk
+/// to other people. For example, a user can give an external incoming viewing key to a
+/// merchant terminal, enabling it to only detect "real" transactions from customers and
+/// not internal transactions from the wallet.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Scope {
     /// A scope used for wallet-external operations, namely deriving addresses to give to

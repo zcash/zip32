@@ -2,6 +2,8 @@
 //!
 //! [ZIP 32]: https://zips.z.cash/zip-0032
 
+#![deny(rustdoc::broken_intra_doc_links)]
+
 use memuse::{self, DynamicUsage};
 use subtle::{Choice, ConditionallySelectable};
 

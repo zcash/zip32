@@ -2,6 +2,7 @@
 //!
 //! [ZIP 32]: https://zips.z.cash/zip-0032
 
+#![no_std]
 #![deny(missing_docs)]
 #![deny(unsafe_code)]
 #![deny(rustdoc::broken_intra_doc_links)]
@@ -121,7 +122,7 @@ impl From<u64> for DiversifierIndex {
 }
 
 impl TryFrom<DiversifierIndex> for u32 {
-    type Error = std::num::TryFromIntError;
+    type Error = core::num::TryFromIntError;
 
     fn try_from(di: DiversifierIndex) -> Result<u32, Self::Error> {
         let mut u128_bytes = [0u8; 16];

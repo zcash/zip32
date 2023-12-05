@@ -1,6 +1,14 @@
-//! Implementation of [ZIP 32] for hierarchical deterministic key management.
+//! Common types for implementing [ZIP 32] for hierarchical deterministic key management.
 //!
 //! [ZIP 32]: https://zips.z.cash/zip-0032
+
+#![no_std]
+#![deny(missing_docs)]
+#![deny(unsafe_code)]
+#![deny(rustdoc::broken_intra_doc_links)]
+
+#[cfg(feature = "std")]
+extern crate std;
 
 use memuse::{self, DynamicUsage};
 use subtle::{Choice, ConditionallySelectable};
@@ -92,6 +100,7 @@ impl ChainCode {
     }
 }
 
+/// The index for a particular diversifier.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DiversifierIndex(pub [u8; 11]);
 
@@ -116,7 +125,7 @@ impl From<u64> for DiversifierIndex {
 }
 
 impl TryFrom<DiversifierIndex> for u32 {
-    type Error = std::num::TryFromIntError;
+    type Error = core::num::TryFromIntError;
 
     fn try_from(di: DiversifierIndex) -> Result<u32, Self::Error> {
         let mut u128_bytes = [0u8; 16];
@@ -126,11 +135,13 @@ impl TryFrom<DiversifierIndex> for u32 {
 }
 
 impl DiversifierIndex {
+    /// Constructs the zero index.
     pub fn new() -> Self {
         DiversifierIndex([0; 11])
     }
 
-    pub fn increment(&mut self) -> Result<(), ()> {
+    /// Increments this index, failing on overflow.
+    pub fn increment(&mut self) -> Result<(), DiversifierIndexOverflowError> {
         for k in 0..11 {
             self.0[k] = self.0[k].wrapping_add(1);
             if self.0[k] != 0 {
@@ -139,20 +150,31 @@ impl DiversifierIndex {
             }
         }
         // Overflow
-        Err(())
+        Err(DiversifierIndexOverflowError)
     }
 }
+
+/// The error type returned when a [`DiversifierIndex`] increment fails.
+#[derive(Clone, Copy, Debug)]
+pub struct DiversifierIndexOverflowError;
+
+impl core::fmt::Display for DiversifierIndexOverflowError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "DiversifierIndex increment overflowed")
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for DiversifierIndexOverflowError {}
 
 /// The scope of a viewing key or address.
 ///
 /// A "scope" narrows the visibility or usage to a level below "full".
 ///
 /// Consistent usage of `Scope` enables the user to provide consistent views over a wallet
-/// to other people. For example, a user can give an external [SaplingIvk] to a merchant
-/// terminal, enabling it to only detect "real" transactions from customers and not
-/// internal transactions from the wallet.
-///
-/// [SaplingIvk]: crate::sapling::SaplingIvk
+/// to other people. For example, a user can give an external incoming viewing key to a
+/// merchant terminal, enabling it to only detect "real" transactions from customers and
+/// not internal transactions from the wallet.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Scope {
     /// A scope used for wallet-external operations, namely deriving addresses to give to

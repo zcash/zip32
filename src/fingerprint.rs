@@ -1,18 +1,21 @@
 //! Seed Fingerprints according to ZIP 32
 //!
-//! Implements section `Seed Fingerprints` of Shielded Hierarchical Deterministic Wallets (ZIP 32)
+//! Implements section [Seed Fingerprints] of Shielded Hierarchical Deterministic Wallets (ZIP 32).
 //!
-//! [Section Seed Fingerprints]: https://zips.z.cash/zip-0032#seed-fingerprints
+//! [Seed Fingerprints]: https://zips.z.cash/zip-0032#seed-fingerprints
 use blake2b_simd::Params as Blake2bParams;
 
-pub const ZIP32_SEED_FP_PERSONALIZATION: &[u8; 16] = b"Zcash_HD_Seed_FP";
+const ZIP32_SEED_FP_PERSONALIZATION: &[u8; 16] = b"Zcash_HD_Seed_FP";
+
+/// The fingerprint for a wallet's seed bytes, as defined in [ZIP 32].
+///
+/// [ZIP 32]: https://zips.z.cash/zip-0032#seed-fingerprints
 pub struct SeedFingerprint([u8; 32]);
 
 impl SeedFingerprint {
-    /// Return the seed fingerprint of the wallet as defined in
-    /// <https://zips.z.cash/zip-0032#seed-fingerprints> or None
-    /// if the length of `seed_bytes` is less than 32 or
-    /// greater than 252.
+    /// Derives the fingerprint of the given seed bytes.
+    ///
+    /// Returns `None` if the length of `seed_bytes` is less than 32 or greater than 252.
     pub fn from_seed(seed_bytes: &[u8]) -> Option<SeedFingerprint> {
         let seed_len = seed_bytes.len();
 
@@ -44,17 +47,17 @@ impl SeedFingerprint {
 #[test]
 fn test_seed_fingerprint() {
     struct TestVector {
-        root_seed: Vec<u8>,
-        fingerprint: Vec<u8>,
+        root_seed: [u8; 32],
+        fingerprint: [u8; 32],
     }
 
-    let test_vectors = vec![TestVector {
-        root_seed: vec![
+    let test_vectors = [TestVector {
+        root_seed: [
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
             0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b,
             0x1c, 0x1d, 0x1e, 0x1f,
         ],
-        fingerprint: vec![
+        fingerprint: [
             0xde, 0xff, 0x60, 0x4c, 0x24, 0x67, 0x10, 0xf7, 0x17, 0x6d, 0xea, 0xd0, 0x2a, 0xa7,
             0x46, 0xf2, 0xfd, 0x8d, 0x53, 0x89, 0xf7, 0x7, 0x25, 0x56, 0xdc, 0xb5, 0x55, 0xfd,
             0xbe, 0x5e, 0x3a, 0xe3,
@@ -68,7 +71,7 @@ fn test_seed_fingerprint() {
 }
 #[test]
 fn test_seed_fingerprint_is_none() {
-    let odd_seed = vec![
+    let odd_seed = [
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e,
         0x0f,
     ];

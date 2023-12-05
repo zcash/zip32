@@ -7,6 +7,9 @@
 #![deny(unsafe_code)]
 #![deny(rustdoc::broken_intra_doc_links)]
 
+#[cfg(feature = "std")]
+extern crate std;
+
 use memuse::{self, DynamicUsage};
 use subtle::{Choice, ConditionallySelectable};
 
@@ -138,7 +141,7 @@ impl DiversifierIndex {
     }
 
     /// Increments this index, failing on overflow.
-    pub fn increment(&mut self) -> Result<(), ()> {
+    pub fn increment(&mut self) -> Result<(), DiversifierIndexOverflowError> {
         for k in 0..11 {
             self.0[k] = self.0[k].wrapping_add(1);
             if self.0[k] != 0 {
@@ -147,9 +150,22 @@ impl DiversifierIndex {
             }
         }
         // Overflow
-        Err(())
+        Err(DiversifierIndexOverflowError)
     }
 }
+
+/// The error type returned when a [`DiversifierIndex`] increment fails.
+#[derive(Clone, Copy, Debug)]
+pub struct DiversifierIndexOverflowError;
+
+impl core::fmt::Display for DiversifierIndexOverflowError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "DiversifierIndex increment overflowed")
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for DiversifierIndexOverflowError {}
 
 /// The scope of a viewing key or address.
 ///

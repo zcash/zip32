@@ -59,6 +59,16 @@ impl ConditionallySelectable for AccountId {
     }
 }
 
+impl AccountId {
+    /// The ID for account zero (the first account).
+    pub const ZERO: Self = Self(0);
+
+    /// Returns the next account ID in sequence, or `None` on overflow.
+    pub fn next(&self) -> Option<Self> {
+        Self::try_from(self.0 + 1).ok()
+    }
+}
+
 /// The error type returned when a checked integral type conversion fails.
 #[derive(Clone, Copy, Debug)]
 pub struct TryFromIntError(());
@@ -264,8 +274,18 @@ memuse::impl_no_dynamic_usage!(Scope);
 
 #[cfg(test)]
 mod tests {
-    use super::DiversifierIndex;
+    use super::{AccountId, DiversifierIndex};
+
     use assert_matches::assert_matches;
+
+    #[test]
+    fn account_id_next() {
+        let zero = AccountId::ZERO;
+        assert_eq!(zero.next(), AccountId::try_from(1).ok());
+
+        let max_id = AccountId::try_from((1 << 31) - 1).unwrap();
+        assert_eq!(max_id.next(), None);
+    }
 
     #[test]
     fn diversifier_index_to_u32() {

@@ -59,6 +59,16 @@ impl ConditionallySelectable for AccountId {
     }
 }
 
+impl AccountId {
+    /// The ID for account zero (the first account).
+    pub const ZERO: Self = Self(0);
+
+    /// Returns the next account ID in sequence, or `None` on overflow.
+    pub fn next(&self) -> Option<Self> {
+        Self::try_from(self.0 + 1).ok()
+    }
+}
+
 /// The error type returned when a checked integral type conversion fails.
 #[derive(Clone, Copy, Debug)]
 pub struct TryFromIntError(());
@@ -169,13 +179,38 @@ impl From<[u8; 11]> for DiversifierIndex {
     }
 }
 
-impl TryFrom<DiversifierIndex> for u32 {
-    type Error = core::num::TryFromIntError;
+impl TryFrom<u128> for DiversifierIndex {
+    type Error = TryFromIntError;
 
-    fn try_from(di: DiversifierIndex) -> Result<u32, Self::Error> {
+    fn try_from(value: u128) -> Result<Self, Self::Error> {
+        if (value >> 88) == 0 {
+            Ok(Self(value.to_le_bytes()[..11].try_into().unwrap()))
+        } else {
+            Err(TryFromIntError(()))
+        }
+    }
+}
+
+macro_rules! di_try_into {
+    ($n:ident) => {
+        impl TryFrom<DiversifierIndex> for $n {
+            type Error = core::num::TryFromIntError;
+
+            fn try_from(di: DiversifierIndex) -> Result<Self, Self::Error> {
+                u128::from(di).try_into()
+            }
+        }
+    };
+}
+di_try_into!(u32);
+di_try_into!(u64);
+di_try_into!(usize);
+
+impl From<DiversifierIndex> for u128 {
+    fn from(di: DiversifierIndex) -> Self {
         let mut u128_bytes = [0u8; 16];
         u128_bytes[0..11].copy_from_slice(&di.0[..]);
-        u128::from_le_bytes(u128_bytes).try_into()
+        u128::from_le_bytes(u128_bytes)
     }
 }
 
@@ -239,8 +274,18 @@ memuse::impl_no_dynamic_usage!(Scope);
 
 #[cfg(test)]
 mod tests {
-    use super::DiversifierIndex;
+    use super::{AccountId, DiversifierIndex};
+
     use assert_matches::assert_matches;
+
+    #[test]
+    fn account_id_next() {
+        let zero = AccountId::ZERO;
+        assert_eq!(zero.next(), AccountId::try_from(1).ok());
+
+        let max_id = AccountId::try_from((1 << 31) - 1).unwrap();
+        assert_eq!(max_id.next(), None);
+    }
 
     #[test]
     fn diversifier_index_to_u32() {
@@ -248,15 +293,86 @@ mod tests {
             0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ]);
         assert_eq!(u32::try_from(two), Ok(2));
+        assert_eq!(DiversifierIndex::from(2_u32), two);
 
         let max_u32 = DiversifierIndex([
             0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ]);
         assert_eq!(u32::try_from(max_u32), Ok(u32::MAX));
+        assert_eq!(DiversifierIndex::from(u32::MAX), max_u32);
 
         let too_big = DiversifierIndex([
-            0xff, 0xff, 0xff, 0xff, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ]);
         assert_matches!(u32::try_from(too_big), Err(_));
+    }
+
+    #[test]
+    fn diversifier_index_to_u64() {
+        let two = DiversifierIndex([
+            0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ]);
+        assert_eq!(u64::try_from(two), Ok(2));
+        assert_eq!(DiversifierIndex::from(2_u64), two);
+
+        let max_u64 = DiversifierIndex([
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00,
+        ]);
+        assert_eq!(u64::try_from(max_u64), Ok(u64::MAX));
+        assert_eq!(DiversifierIndex::from(u64::MAX), max_u64);
+
+        let too_big = DiversifierIndex([
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
+        ]);
+        assert_matches!(u64::try_from(too_big), Err(_));
+    }
+
+    #[test]
+    fn diversifier_index_to_u128() {
+        let two = DiversifierIndex([
+            0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ]);
+        assert_eq!(u128::from(two), 2);
+        assert_eq!(DiversifierIndex::try_from(2_u128).unwrap(), two);
+
+        let max_di = DiversifierIndex([
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        ]);
+        assert_eq!(u128::try_from(max_di), Ok(0x00ff_ffff_ffff_ffff_ffff_ffff));
+        assert_eq!(
+            DiversifierIndex::try_from(0x00ff_ffff_ffff_ffff_ffff_ffff_u128).unwrap(),
+            max_di,
+        );
+
+        assert!(DiversifierIndex::try_from(0x0100_0000_0000_0000_0000_0000_u128).is_err());
+    }
+
+    #[test]
+    fn diversifier_index_increment() {
+        let mut di = DiversifierIndex::new();
+        assert_eq!(di, 0_u32.into());
+
+        assert_matches!(di.increment(), Ok(_));
+        assert_eq!(di, 1_u32.into());
+
+        assert_matches!(di.increment(), Ok(_));
+        assert_eq!(di, 2_u32.into());
+
+        let mut di = DiversifierIndex::from(0xff_u32);
+        assert_eq!(di, 0x00ff_u32.into());
+
+        assert_matches!(di.increment(), Ok(_));
+        assert_eq!(di, 0x0100_u32.into());
+
+        assert_matches!(di.increment(), Ok(_));
+        assert_eq!(di, 0x0101_u32.into());
+
+        let mut di = DiversifierIndex::try_from(0x00ff_ffff_ffff_ffff_ffff_fffe_u128).unwrap();
+        assert_eq!(u128::from(di), 0x00ff_ffff_ffff_ffff_ffff_fffe_u128);
+
+        assert_matches!(di.increment(), Ok(_));
+        assert_eq!(u128::from(di), 0x00ff_ffff_ffff_ffff_ffff_ffff_u128);
+
+        assert_matches!(di.increment(), Err(_));
     }
 }

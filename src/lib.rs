@@ -326,4 +326,33 @@ mod tests {
 
         assert!(DiversifierIndex::try_from(0x0100_0000_0000_0000_0000_0000_u128).is_err());
     }
+
+    #[test]
+    fn diversifier_index_increment() {
+        let mut di = DiversifierIndex::new();
+        assert_eq!(di, 0_u32.into());
+
+        assert_matches!(di.increment(), Ok(_));
+        assert_eq!(di, 1_u32.into());
+
+        assert_matches!(di.increment(), Ok(_));
+        assert_eq!(di, 2_u32.into());
+
+        let mut di = DiversifierIndex::from(0xff_u32);
+        assert_eq!(di, 0x00ff_u32.into());
+
+        assert_matches!(di.increment(), Ok(_));
+        assert_eq!(di, 0x0100_u32.into());
+
+        assert_matches!(di.increment(), Ok(_));
+        assert_eq!(di, 0x0101_u32.into());
+
+        let mut di = DiversifierIndex::try_from(0x00ff_ffff_ffff_ffff_ffff_fffe_u128).unwrap();
+        assert_eq!(u128::from(di), 0x00ff_ffff_ffff_ffff_ffff_fffe_u128);
+
+        assert_matches!(di.increment(), Ok(_));
+        assert_eq!(u128::from(di), 0x00ff_ffff_ffff_ffff_ffff_ffff_u128);
+
+        assert_matches!(di.increment(), Err(_));
+    }
 }

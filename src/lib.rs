@@ -169,13 +169,38 @@ impl From<[u8; 11]> for DiversifierIndex {
     }
 }
 
-impl TryFrom<DiversifierIndex> for u32 {
-    type Error = core::num::TryFromIntError;
+impl TryFrom<u128> for DiversifierIndex {
+    type Error = TryFromIntError;
 
-    fn try_from(di: DiversifierIndex) -> Result<u32, Self::Error> {
+    fn try_from(value: u128) -> Result<Self, Self::Error> {
+        if (value >> 88) == 0 {
+            Ok(Self(value.to_le_bytes()[..11].try_into().unwrap()))
+        } else {
+            Err(TryFromIntError(()))
+        }
+    }
+}
+
+macro_rules! di_try_into {
+    ($n:ident) => {
+        impl TryFrom<DiversifierIndex> for $n {
+            type Error = core::num::TryFromIntError;
+
+            fn try_from(di: DiversifierIndex) -> Result<Self, Self::Error> {
+                u128::from(di).try_into()
+            }
+        }
+    };
+}
+di_try_into!(u32);
+di_try_into!(u64);
+di_try_into!(usize);
+
+impl From<DiversifierIndex> for u128 {
+    fn from(di: DiversifierIndex) -> Self {
         let mut u128_bytes = [0u8; 16];
         u128_bytes[0..11].copy_from_slice(&di.0[..]);
-        u128::from_le_bytes(u128_bytes).try_into()
+        u128::from_le_bytes(u128_bytes)
     }
 }
 
@@ -248,15 +273,57 @@ mod tests {
             0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ]);
         assert_eq!(u32::try_from(two), Ok(2));
+        assert_eq!(DiversifierIndex::from(2_u32), two);
 
         let max_u32 = DiversifierIndex([
             0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ]);
         assert_eq!(u32::try_from(max_u32), Ok(u32::MAX));
+        assert_eq!(DiversifierIndex::from(u32::MAX), max_u32);
 
         let too_big = DiversifierIndex([
-            0xff, 0xff, 0xff, 0xff, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ]);
         assert_matches!(u32::try_from(too_big), Err(_));
+    }
+
+    #[test]
+    fn diversifier_index_to_u64() {
+        let two = DiversifierIndex([
+            0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ]);
+        assert_eq!(u64::try_from(two), Ok(2));
+        assert_eq!(DiversifierIndex::from(2_u64), two);
+
+        let max_u64 = DiversifierIndex([
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00,
+        ]);
+        assert_eq!(u64::try_from(max_u64), Ok(u64::MAX));
+        assert_eq!(DiversifierIndex::from(u64::MAX), max_u64);
+
+        let too_big = DiversifierIndex([
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
+        ]);
+        assert_matches!(u64::try_from(too_big), Err(_));
+    }
+
+    #[test]
+    fn diversifier_index_to_u128() {
+        let two = DiversifierIndex([
+            0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ]);
+        assert_eq!(u128::from(two), 2);
+        assert_eq!(DiversifierIndex::try_from(2_u128).unwrap(), two);
+
+        let max_di = DiversifierIndex([
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        ]);
+        assert_eq!(u128::try_from(max_di), Ok(0x00ff_ffff_ffff_ffff_ffff_ffff));
+        assert_eq!(
+            DiversifierIndex::try_from(0x00ff_ffff_ffff_ffff_ffff_ffff_u128).unwrap(),
+            max_di,
+        );
+
+        assert!(DiversifierIndex::try_from(0x0100_0000_0000_0000_0000_0000_u128).is_err());
     }
 }

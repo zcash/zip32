@@ -7,5 +7,9 @@ and this library adheres to Rust's notion of
 
 ## [Unreleased]
 
+### Added
+- `impl {Clone, Copy, Debug, PartialOrd, Ord, PartialEq, Eq, Hash}` for 
+  `zip32::fingerprint::SeedFingerprint`
+
 ## [0.1.0] - 2023-12-06
 Initial release.

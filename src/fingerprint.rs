@@ -10,7 +10,20 @@ const ZIP32_SEED_FP_PERSONALIZATION: &[u8; 16] = b"Zcash_HD_Seed_FP";
 /// The fingerprint for a wallet's seed bytes, as defined in [ZIP 32].
 ///
 /// [ZIP 32]: https://zips.z.cash/zip-0032#seed-fingerprints
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SeedFingerprint([u8; 32]);
+
+impl ::core::fmt::Debug for SeedFingerprint {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+        write!(f, "SeedFingerprint(")?;
+        for i in self.0 {
+            write!(f, "{:02x}", i)?;
+        }
+        write!(f, ")")?;
+
+        Ok(())
+    }
+}
 
 impl SeedFingerprint {
     /// Derives the fingerprint of the given seed bytes.
@@ -38,6 +51,11 @@ impl SeedFingerprint {
         }
     }
 
+    /// Reconstructs the fingerprint from a buffer containing a previously computed fingerprint.
+    pub fn from_bytes(hash: [u8; 32]) -> Self {
+        Self(hash)
+    }
+
     /// Returns the fingerprint as a byte array.
     pub fn to_bytes(&self) -> [u8; 32] {
         self.0
@@ -49,6 +67,7 @@ fn test_seed_fingerprint() {
     struct TestVector {
         root_seed: [u8; 32],
         fingerprint: [u8; 32],
+        fingerprint_str: &'static str,
     }
 
     let test_vectors = [TestVector {
@@ -62,11 +81,16 @@ fn test_seed_fingerprint() {
             0x46, 0xf2, 0xfd, 0x8d, 0x53, 0x89, 0xf7, 0x7, 0x25, 0x56, 0xdc, 0xb5, 0x55, 0xfd,
             0xbe, 0x5e, 0x3a, 0xe3,
         ],
+        fingerprint_str: "deff604c246710f7176dead02aa746f2fd8d5389f7072556dcb555fdbe5e3ae3",
     }];
 
     for tv in test_vectors {
         let fp = SeedFingerprint::from_seed(&tv.root_seed).expect("root_seed has valid length");
         assert_eq!(&fp.to_bytes(), &tv.fingerprint[..]);
+        assert_eq!(
+            std::format!("{:?}", fp),
+            std::format!("SeedFingerprint({})", tv.fingerprint_str)
+        );
     }
 }
 #[test]

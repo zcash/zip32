@@ -7,9 +7,12 @@ and this library adheres to Rust's notion of
 
 ## [Unreleased]
 
+## [0.1.1] - 2024-03-14
+
 ### Added
 - `impl {Clone, Copy, Debug, PartialOrd, Ord, PartialEq, Eq, Hash}` for 
   `zip32::fingerprint::SeedFingerprint`
+- `zip32::fingerprint::SeedFingerprint::from_bytes`
 
 ## [0.1.0] - 2023-12-06
 Initial release.

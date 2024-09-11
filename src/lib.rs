@@ -149,7 +149,7 @@ impl ChainCode {
 }
 
 /// The index for a particular diversifier.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct DiversifierIndex([u8; 11]);
 
 impl Default for DiversifierIndex {
@@ -211,6 +211,26 @@ impl From<DiversifierIndex> for u128 {
         let mut u128_bytes = [0u8; 16];
         u128_bytes[0..11].copy_from_slice(&di.0[..]);
         u128::from_le_bytes(u128_bytes)
+    }
+}
+
+impl PartialOrd for DiversifierIndex {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for DiversifierIndex {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        self.0
+            .iter()
+            .rev()
+            .zip(other.0.iter().rev())
+            .find_map(|(a, b)| match a.cmp(b) {
+                core::cmp::Ordering::Equal => None,
+                ineq => Some(ineq),
+            })
+            .unwrap_or(core::cmp::Ordering::Equal)
     }
 }
 
@@ -374,5 +394,13 @@ mod tests {
         assert_eq!(u128::from(di), 0x00ff_ffff_ffff_ffff_ffff_ffff_u128);
 
         assert_matches!(di.increment(), Err(_));
+    }
+
+    #[test]
+    fn diversifier_index_ord() {
+        assert!(DiversifierIndex::from(1u64) < DiversifierIndex::from(2u64));
+        assert!(DiversifierIndex::from(u64::MAX - 1) < DiversifierIndex::from(u64::MAX));
+        assert!(DiversifierIndex::from(3u64) == DiversifierIndex::from(3u64));
+        assert!(DiversifierIndex::from(u64::MAX) == DiversifierIndex::from(u64::MAX));
     }
 }

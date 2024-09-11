@@ -7,6 +7,9 @@ and this library adheres to Rust's notion of
 
 ## [Unreleased]
 
+### Added
+- `impl {PartialOrd, Ord, Hash}` for `zip32::DiversifierIndex`
+
 ## [0.1.1] - 2024-03-14
 
 ### Added

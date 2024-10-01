@@ -8,6 +8,10 @@ and this library adheres to Rust's notion of
 ## [Unreleased]
 
 ### Added
+- `zip32::arbitrary` module, implementing hardened-only "arbitrary" key
+  derivation that needs no ecosystem-wide coordination.
+- `zip32::hardened_only` module, providing a generic hardened-only key
+  derivation framework (initially used for Orchard and `zip32::arbitrary`).
 - `impl {PartialOrd, Ord, Hash}` for `zip32::DiversifierIndex`
 
 ## [0.1.1] - 2024-03-14

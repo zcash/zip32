@@ -15,7 +15,9 @@ use core::mem;
 use memuse::{self, DynamicUsage};
 use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 
+pub mod arbitrary;
 pub mod fingerprint;
+pub mod hardened_only;
 
 /// A type-safe wrapper for account identifiers.
 ///

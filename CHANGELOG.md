@@ -7,6 +7,8 @@ and this library adheres to Rust's notion of
 
 ## [Unreleased]
 
+## [0.1.2] - 2024-10-22
+
 ### Added
 - `zip32::arbitrary` module, implementing hardened-only "arbitrary" key
   derivation that needs no ecosystem-wide coordination.

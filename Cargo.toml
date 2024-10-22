@@ -1,6 +1,6 @@
 [package]
 name = "zip32"
-version = "0.1.1"
+version = "0.1.2"
 authors = [
     "Jack Grigg <jack@electriccoin.co>",
     "Kris Nuttycombe <kris@electriccoin.co>",
@@ -17,7 +17,7 @@ rust-version = "1.60"
 blake2b_simd = "1"
 memuse = "0.2.1"
 subtle = "2.2.3"
-zcash_spec = "0.1"
+zcash_spec = "0.1.2"
 
 [dev-dependencies]
 assert_matches = "1.5"
@@ -25,6 +25,3 @@ assert_matches = "1.5"
 [features]
 default = ["std"]
 std = []
-
-[patch.crates-io]
-zcash_spec = { git = "https://github.com/zcash/zcash_spec.git", rev = "569f92d01504deb7b092f4cff1c07a4f60ecfa11" }

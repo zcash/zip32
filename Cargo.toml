@@ -1,6 +1,6 @@
 [package]
 name = "zip32"
-version = "0.1.1"
+version = "0.1.2"
 authors = [
     "Jack Grigg <jack@electriccoin.co>",
     "Kris Nuttycombe <kris@electriccoin.co>",
@@ -17,6 +17,7 @@ rust-version = "1.60"
 blake2b_simd = "1"
 memuse = "0.2.1"
 subtle = "2.2.3"
+zcash_spec = "0.1.2"
 
 [dev-dependencies]
 assert_matches = "1.5"

@@ -33,6 +33,22 @@ pub struct SecretKey {
     inner: HardenedOnlyKey<Arbitrary>,
 }
 
+fn with_ikm<F, T>(context_string: &[u8], seed: &[u8], f: F) -> T
+where
+    F: FnOnce(&[&[u8]]) -> T,
+{
+    let context_len =
+        u8::try_from(context_string.len()).expect("context string should be at most 252 bytes");
+    assert!((1..=252).contains(&context_len));
+
+    let seed_len = u8::try_from(seed.len()).expect("seed should be at most 252 bytes");
+    assert!((32..=252).contains(&seed_len));
+
+    let ikm = &[&[context_len], context_string, &[seed_len], seed];
+
+    f(ikm)
+}
+
 impl SecretKey {
     /// Derives an arbitrary key at the given path from the given seed.
     ///
@@ -64,18 +80,9 @@ impl SecretKey {
     /// - the context string is empty or longer than 252 bytes.
     /// - the seed is shorter than 32 bytes or longer than 252 bytes.
     fn master(context_string: &[u8], seed: &[u8]) -> Self {
-        let context_len =
-            u8::try_from(context_string.len()).expect("context string should be at most 252 bytes");
-        assert!((1..=252).contains(&context_len));
-
-        let seed_len = u8::try_from(seed.len()).expect("seed should be at most 252 bytes");
-        assert!((32..=252).contains(&seed_len));
-
-        let ikm = &[&[context_len], context_string, &[seed_len], seed];
-
-        Self {
+        with_ikm(context_string, seed, |ikm| Self {
             inner: HardenedOnlyKey::master(ikm),
-        }
+        })
     }
 
     /// Derives a child key from a parent key at a given index.
@@ -120,11 +127,15 @@ impl SecretKey {
 
 #[cfg(test)]
 mod tests {
-    use crate::ChildIndex;
+    use crate::{arbitrary::with_ikm, ChildIndex};
 
     use super::SecretKey;
 
     struct TestVector {
+        context_string: &'static [u8],
+        seed: [u8; 32],
+        ikm: Option<&'static [u8]>,
+        path: &'static [u32],
         sk: [u8; 32],
         c: [u8; 32],
     }
@@ -132,6 +143,22 @@ mod tests {
     // From https://github.com/zcash-hackworks/zcash-test-vectors/blob/master/zip_0032_arbitrary.py
     const TEST_VECTORS: &'static [TestVector] = &[
         TestVector {
+            context_string: &[
+                0x5a, 0x63, 0x61, 0x73, 0x68, 0x20, 0x74, 0x65, 0x73, 0x74, 0x20, 0x76, 0x65, 0x63,
+                0x74, 0x6f, 0x72, 0x73,
+            ],
+            seed: [
+                0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
+                0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b,
+                0x1c, 0x1d, 0x1e, 0x1f,
+            ],
+            ikm: Some(&[
+                0x12, 0x5a, 0x63, 0x61, 0x73, 0x68, 0x20, 0x74, 0x65, 0x73, 0x74, 0x20, 0x76, 0x65,
+                0x63, 0x74, 0x6f, 0x72, 0x73, 0x20, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+                0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15,
+                0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
+            ]),
+            path: &[],
             sk: [
                 0xe9, 0xda, 0x88, 0x06, 0x40, 0x9d, 0xc3, 0xc3, 0xeb, 0xd1, 0xfc, 0x2a, 0x71, 0xc8,
                 0x79, 0xc1, 0x3d, 0xd7, 0xaa, 0x93, 0xed, 0xe8, 0x03, 0xbf, 0x1a, 0x83, 0x41, 0x4b,
@@ -144,6 +171,17 @@ mod tests {
             ],
         },
         TestVector {
+            context_string: &[
+                0x5a, 0x63, 0x61, 0x73, 0x68, 0x20, 0x74, 0x65, 0x73, 0x74, 0x20, 0x76, 0x65, 0x63,
+                0x74, 0x6f, 0x72, 0x73,
+            ],
+            seed: [
+                0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
+                0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b,
+                0x1c, 0x1d, 0x1e, 0x1f,
+            ],
+            ikm: None,
+            path: &[2147483649],
             sk: [
                 0xe8, 0x40, 0x9a, 0xaa, 0x83, 0x2c, 0xc2, 0x37, 0x8f, 0x2b, 0xad, 0xeb, 0x77, 0x15,
                 0x05, 0x62, 0x15, 0x37, 0x42, 0xfe, 0xe8, 0x76, 0xdc, 0xf4, 0x78, 0x3a, 0x6c, 0xcd,
@@ -156,6 +194,17 @@ mod tests {
             ],
         },
         TestVector {
+            context_string: &[
+                0x5a, 0x63, 0x61, 0x73, 0x68, 0x20, 0x74, 0x65, 0x73, 0x74, 0x20, 0x76, 0x65, 0x63,
+                0x74, 0x6f, 0x72, 0x73,
+            ],
+            seed: [
+                0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
+                0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b,
+                0x1c, 0x1d, 0x1e, 0x1f,
+            ],
+            ikm: None,
+            path: &[2147483649, 2147483650],
             sk: [
                 0x46, 0x4f, 0x90, 0xa3, 0x64, 0xcf, 0xf8, 0x05, 0xfe, 0xe9, 0x3a, 0x85, 0xb7, 0x2f,
                 0x48, 0x94, 0xce, 0x4e, 0x13, 0x58, 0xdc, 0xdc, 0x1e, 0x61, 0xa3, 0xd4, 0x30, 0x30,
@@ -168,6 +217,17 @@ mod tests {
             ],
         },
         TestVector {
+            context_string: &[
+                0x5a, 0x63, 0x61, 0x73, 0x68, 0x20, 0x74, 0x65, 0x73, 0x74, 0x20, 0x76, 0x65, 0x63,
+                0x74, 0x6f, 0x72, 0x73,
+            ],
+            seed: [
+                0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
+                0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b,
+                0x1c, 0x1d, 0x1e, 0x1f,
+            ],
+            ikm: None,
+            path: &[2147483649, 2147483650, 2147483651],
             sk: [
                 0xfc, 0x4b, 0x6e, 0x93, 0xb0, 0xe4, 0x2f, 0x7a, 0x76, 0x2c, 0xa0, 0xc6, 0x52, 0x2c,
                 0xcd, 0x10, 0x45, 0xca, 0xb5, 0x06, 0xb3, 0x72, 0x45, 0x2a, 0xf7, 0x30, 0x6c, 0x87,
@@ -184,7 +244,6 @@ mod tests {
     #[test]
     fn test_vectors() {
         let context_string = b"Zcash test vectors";
-        let seed = [0; 32];
         let full_path = [
             ChildIndex::hardened(1),
             ChildIndex::hardened(2),
@@ -192,13 +251,29 @@ mod tests {
         ];
 
         for (i, tv) in TEST_VECTORS.iter().enumerate() {
+            assert_eq!(tv.context_string, context_string);
+
+            let path = tv
+                .path
+                .into_iter()
+                .map(|i| ChildIndex::from_index(*i).expect("hardened"))
+                .collect::<std::vec::Vec<_>>();
+            assert_eq!(&full_path[..i], &path);
+
             // The derived master key should be identical to the key at the empty path.
-            if i == 0 {
-                let sk = SecretKey::master(context_string, &seed);
+            if let Some(mut tv_ikm) = tv.ikm {
+                with_ikm(tv.context_string, &tv.seed, |ikm| {
+                    for part in ikm {
+                        assert_eq!(*part, &tv_ikm[..part.len()]);
+                        tv_ikm = &tv_ikm[part.len()..];
+                    }
+                });
+
+                let sk = SecretKey::master(context_string, &tv.seed);
                 assert_eq!((sk.data(), sk.chain_code().as_bytes()), (&tv.sk, &tv.c));
             }
 
-            let sk = SecretKey::from_path(context_string, &seed, &full_path[..i]);
+            let sk = SecretKey::from_path(tv.context_string, &tv.seed, &path);
             assert_eq!(sk.data(), &tv.sk);
             assert_eq!(sk.chain_code().as_bytes(), &tv.c);
         }

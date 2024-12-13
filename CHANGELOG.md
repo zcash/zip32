@@ -7,6 +7,9 @@ and this library adheres to Rust's notion of
 
 ## [Unreleased]
 
+### Fixed
+- Disabled default features of dependencies to fix no-std support.
+
 ## [0.1.2] - 2024-10-22
 
 ### Added

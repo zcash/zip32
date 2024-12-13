@@ -14,9 +14,9 @@ edition = "2021"
 rust-version = "1.60"
 
 [dependencies]
-blake2b_simd = "1"
-memuse = "0.2.1"
-subtle = "2.2.3"
+blake2b_simd = { version = "1", default-features = false }
+memuse = { version = "0.2.2", default-features = false }
+subtle = { version = "2.2.3", default-features = false }
 zcash_spec = "0.1.2"
 
 [dev-dependencies]
@@ -24,4 +24,4 @@ assert_matches = "1.5"
 
 [features]
 default = ["std"]
-std = []
+std = ["memuse/std"]

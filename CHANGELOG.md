@@ -7,6 +7,8 @@ and this library adheres to Rust's notion of
 
 ## [Unreleased]
 
+## [0.1.3] - 2024-12-13
+
 ### Fixed
 - Disabled default features of dependencies to fix no-std support.
 

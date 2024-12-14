@@ -257,7 +257,7 @@ mod tests {
                 .path
                 .into_iter()
                 .map(|i| ChildIndex::from_index(*i).expect("hardened"))
-                .collect::<std::vec::Vec<_>>();
+                .collect::<alloc::vec::Vec<_>>();
             assert_eq!(&full_path[..i], &path);
 
             // The derived master key should be identical to the key at the empty path.

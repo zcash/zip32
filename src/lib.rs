@@ -7,6 +7,9 @@
 #![deny(unsafe_code)]
 #![deny(rustdoc::broken_intra_doc_links)]
 
+#[cfg(test)]
+extern crate alloc;
+
 #[cfg(feature = "std")]
 extern crate std;
 

@@ -1,12 +1,12 @@
 //! Generic framework for hardened-only key derivation.
 //!
-//! Defined in [ZIP32: Hardened-only key derivation][hkd].
+//! Defined in [ZIP 32: Hardened-only key derivation][hkd].
 //!
-//! Any usage of the types in this module needs to have a corresponding ZIP. If you just
-//! want to derive an arbitrary key in a ZIP 32-compatible manner without ecosystem-wide
-//! coordination, use [`arbitrary::SecretKey`].
+//! Any usage of the types in this module needs to have a corresponding ZIP (except via
+//! [`arbitrary::SecretKey`] but that is NOT RECOMMENDED for new protocols [adhockd]).
 //!
 //! [hkd]: https://zips.z.cash/zip-0032#specification-hardened-only-key-derivation
+//! [adhockd]: https://zips.z.cash/zip-0032#specification-ad-hoc-key-derivation-deprecated
 //! [`arbitrary::SecretKey`]: crate::arbitrary::SecretKey
 
 use core::marker::PhantomData;
@@ -28,9 +28,9 @@ pub trait Context {
     const CKD_DOMAIN: PrfExpand<([u8; 32], [u8; 4])>;
 }
 
-/// An arbitrary extended secret key.
+/// An arbitrary or registered extended secret key.
 ///
-/// Defined in [ZIP32: Hardened-only key derivation][hkd].
+/// Defined in [ZIP 32: Hardened-only key derivation][hkd].
 ///
 /// [hkd]: https://zips.z.cash/zip-0032#specification-hardened-only-key-derivation
 #[derive(Clone, Debug)]
@@ -60,7 +60,7 @@ impl<C: Context> HardenedOnlyKey<C> {
 
     /// Generates the master key of a hardened-only extended secret key.
     ///
-    /// Defined in [ZIP32: Hardened-only master key generation][mkgh].
+    /// Defined in [ZIP 32: Hardened-only master key generation][mkgh].
     ///
     /// [mkgh]: https://zips.z.cash/zip-0032#hardened-only-master-key-generation
     pub fn master(ikm: &[&[u8]]) -> Self {
@@ -73,48 +73,74 @@ impl<C: Context> HardenedOnlyKey<C> {
             for input in ikm {
                 I.update(input);
             }
-            I.finalize().as_bytes().try_into().unwrap()
+            I.finalize().as_bytes().try_into().expect("64-byte output")
         };
-
-        let (I_L, I_R) = I.split_at(32);
-
-        // I_L is used as the master secret key sk_m.
-        let sk_m = I_L.try_into().unwrap();
-
-        // I_R is used as the master chain code c_m.
-        let c_m = ChainCode::new(I_R.try_into().unwrap());
-
-        Self {
-            sk: sk_m,
-            chain_code: c_m,
-            _context: PhantomData,
-        }
+        Self::derive_from(&I)
     }
 
-    /// Derives a child key from a parent key at a given index.
+    /// Derives a child key from a parent key at a given index. This is
+    /// equivalent to `self.derive_child_with_tag(index, &[])`.
     ///
-    /// Defined in [ZIP32: Hardened-only child key derivation][ckdh].
+    /// Defined in [ZIP 32: Hardened-only child key derivation][ckdh].
     ///
     /// [ckdh]: https://zips.z.cash/zip-0032#hardened-only-child-key-derivation
     pub fn derive_child(&self, index: ChildIndex) -> Self {
-        // I := PRF^Expand(c_par, [Context.CKDDomain] || sk_par || I2LEOSP(i))
-        let I: [u8; 64] = C::CKD_DOMAIN.with(
+        self.derive_child_with_tag(index, &[])
+    }
+
+    /// Derives a child key from a parent key at a given index and (possibly empty)
+    /// tag.
+    ///
+    /// Defined in [ZIP 32: Hardened-only child key derivation][ckdh].
+    ///
+    /// [ckdh]: https://zips.z.cash/zip-0032#hardened-only-child-key-derivation
+    pub fn derive_child_with_tag(&self, index: ChildIndex, tag: &[u8]) -> Self {
+        Self::derive_from(&self.ckdh_internal(index, tag, false))
+    }
+
+    /// Derives a full-width child key cryptovalue from a parent key at a given
+    /// index and (possibly empty) tag.
+    ///
+    /// Defined in [ZIP 32: Hardened-only child key derivation][ckdh].
+    ///
+    /// [ckdh]: https://zips.z.cash/zip-0032#hardened-only-child-key-derivation
+    pub fn derive_full_width(&self, index: ChildIndex, tag: &[u8]) -> [u8; 64] {
+        self.ckdh_internal(index, tag, true)
+    }
+
+    /// Defined in [ZIP 32: Hardened-only child key derivation][ckdh].
+    ///
+    /// [ckdh]: https://zips.z.cash/zip-0032#hardened-only-child-key-derivation
+    fn ckdh_internal(&self, index: ChildIndex, tag: &[u8], full_width_leaf: bool) -> [u8; 64] {
+        let fwl = [u8::from(full_width_leaf)];
+        let lead: &[u8] = if tag.is_empty() && !full_width_leaf {
+            &[]
+        } else {
+            &fwl
+        };
+
+        // I := PRF^Expand(c_par, [Context.CKDDomain] || sk_par || I2LEOSP(i) || lead || tag)
+        C::CKD_DOMAIN.with_tag(
             self.chain_code.as_bytes(),
             &self.sk,
             &index.index().to_le_bytes(),
-        );
+            lead,
+            tag,
+        )
+    }
 
+    fn derive_from(I: &[u8; 64]) -> Self {
         let (I_L, I_R) = I.split_at(32);
 
-        // I_L is used as the child spending key sk_i.
-        let sk_i = I_L.try_into().unwrap();
+        // I_L is used as the spending key sk.
+        let sk = I_L.try_into().unwrap();
 
-        // I_R is used as the child chain code c_i.
-        let c_i = ChainCode::new(I_R.try_into().unwrap());
+        // I_R is used as the chain code c.
+        let chain_code = ChainCode::new(I_R.try_into().unwrap());
 
         Self {
-            sk: sk_i,
-            chain_code: c_i,
+            sk,
+            chain_code,
             _context: PhantomData,
         }
     }

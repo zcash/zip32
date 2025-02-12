@@ -25,3 +25,6 @@ assert_matches = "1.5"
 [features]
 default = ["std"]
 std = ["memuse/std"]
+
+[patch.crates-io]
+zcash_spec = { git = "https://github.com/daira/zcash_spec.git", rev = "0d3f5914f192f1352dddd31bf56b1df1860bcfb8" }

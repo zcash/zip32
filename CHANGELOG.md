@@ -6,6 +6,15 @@ and this library adheres to Rust's notion of
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- `zip32::registered` module, implementing hardened-only key derivation for
+  an application protocol specified in a ZIP.
+- `zip32::ChildIndex::PRIVATE_USE`
+
+### Deprecated
+- `zip32::arbitrary::SecretKey::into_full_width_key`. This API is
+  cryptographically unsafe because it depends on a restriction that cannot
+  be enforced. Use `zip32::registered::full_width_from_path` instead.
 
 ## [0.1.3] - 2024-12-13
 

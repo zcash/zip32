@@ -52,7 +52,7 @@ checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 [[package]]
 name = "zcash_spec"
 version = "0.1.2"
-source = "git+https://github.com/daira/zcash_spec.git?rev=0d3f5914f192f1352dddd31bf56b1df1860bcfb8#0d3f5914f192f1352dddd31bf56b1df1860bcfb8"
+source = "git+https://github.com/daira/zcash_spec.git?rev=295ed474426a8c2954a534b0bd72b4f4bf0696d9#295ed474426a8c2954a534b0bd72b4f4bf0696d9"
 dependencies = [
  "blake2b_simd",
 ]

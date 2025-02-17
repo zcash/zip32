@@ -13,9 +13,12 @@ use core::marker::PhantomData;
 
 use blake2b_simd::Params as Blake2bParams;
 use subtle::{Choice, ConstantTimeEq};
-use zcash_spec::PrfExpand;
+use zcash_spec::{PrfExpand, VariableLengthSlice};
 
 use crate::{ChainCode, ChildIndex};
+
+pub(crate) type HardenedOnlyCkdDomain =
+    PrfExpand<([u8; 32], [u8; 4], Option<(u8, VariableLengthSlice)>)>;
 
 /// The context in which hardened-only key derivation is instantiated.
 pub trait Context {
@@ -25,7 +28,7 @@ pub trait Context {
     /// protocols.
     const MKG_DOMAIN: [u8; 16];
     /// The `PrfExpand` domain used during child key derivation.
-    const CKD_DOMAIN: PrfExpand<([u8; 32], [u8; 4])>;
+    const CKD_DOMAIN: HardenedOnlyCkdDomain;
 }
 
 /// An arbitrary or registered extended secret key.
@@ -112,20 +115,17 @@ impl<C: Context> HardenedOnlyKey<C> {
     ///
     /// [ckdh]: https://zips.z.cash/zip-0032#hardened-only-child-key-derivation
     fn ckdh_internal(&self, index: ChildIndex, tag: &[u8], full_width_leaf: bool) -> [u8; 64] {
-        let fwl = [u8::from(full_width_leaf)];
-        let lead: &[u8] = if tag.is_empty() && !full_width_leaf {
-            &[]
-        } else {
-            &fwl
-        };
+        let lead_and_tag: Option<(u8, &[u8])> =
+            (!tag.is_empty() || full_width_leaf).then(|| (u8::from(full_width_leaf), tag));
 
-        // I := PRF^Expand(c_par, [Context.CKDDomain] || sk_par || I2LEOSP(i) || lead || tag)
-        C::CKD_DOMAIN.with_tag(
+        // One of these depending on lead and tag:
+        // - I := PRF^Expand(c_par, [Context.CKDDomain] || sk_par || I2LEOSP(i))
+        // - I := PRF^Expand(c_par, [Context.CKDDomain] || sk_par || I2LEOSP(i) || [lead] || tag)
+        C::CKD_DOMAIN.with(
             self.chain_code.as_bytes(),
             &self.sk,
             &index.index().to_le_bytes(),
-            lead,
-            tag,
+            lead_and_tag,
         )
     }
 

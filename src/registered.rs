@@ -38,7 +38,7 @@
 use zcash_spec::PrfExpand;
 
 use crate::{
-    hardened_only::{Context, HardenedOnlyKey},
+    hardened_only::{Context, HardenedOnlyCkdDomain, HardenedOnlyKey},
     ChainCode, ChildIndex,
 };
 
@@ -48,7 +48,7 @@ struct Registered;
 
 impl Context for Registered {
     const MKG_DOMAIN: [u8; 16] = *b"ZIPRegistered_KD";
-    const CKD_DOMAIN: PrfExpand<([u8; 32], [u8; 4])> = PrfExpand::REGISTERED_ZIP32_CHILD;
+    const CKD_DOMAIN: HardenedOnlyCkdDomain = PrfExpand::REGISTERED_ZIP32_CHILD;
 }
 
 /// A registered extended secret key.

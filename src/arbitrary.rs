@@ -24,7 +24,7 @@
 use zcash_spec::PrfExpand;
 
 use crate::{
-    hardened_only::{Context, HardenedOnlyKey},
+    hardened_only::{Context, HardenedOnlyCkdDomain, HardenedOnlyKey},
     ChainCode, ChildIndex,
 };
 
@@ -34,7 +34,7 @@ struct Arbitrary;
 
 impl Context for Arbitrary {
     const MKG_DOMAIN: [u8; 16] = *b"ZcashArbitraryKD";
-    const CKD_DOMAIN: PrfExpand<([u8; 32], [u8; 4])> = PrfExpand::ARBITRARY_ZIP32_CHILD;
+    const CKD_DOMAIN: HardenedOnlyCkdDomain = PrfExpand::ADHOC_ZIP32_CHILD;
 }
 
 /// An ad-hoc extended secret key.

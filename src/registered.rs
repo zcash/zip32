@@ -91,6 +91,16 @@ impl SecretKey {
         xsk
     }
 
+    /// Constructs a key for a registered application protocol from its constituent parts.
+    ///
+    /// This is a low-level API. The constructor must only be called with parts that were
+    /// obtained from previous calls to [`Self::data`] and [`Self::chain_code`].
+    pub fn from_parts(sk: [u8; 32], chain_code: ChainCode) -> Self {
+        Self {
+            inner: HardenedOnlyKey::from_parts(sk, chain_code),
+        }
+    }
+
     /// Generates the master key of a registered extended secret key.
     /// This should not be exposed directly. It is defined as an intermediate
     /// valid in [ZIP 32: Registered subtree root key generation][regroot].
@@ -113,7 +123,7 @@ impl SecretKey {
     /// Defined in [ZIP 32: Registered child key derivation][regckd].
     ///
     /// [regckd]: https://zips.z.cash/zip-0032#registered-child-key-derivation
-    fn derive_child_with_tag(&self, index: ChildIndex, tag: &[u8]) -> Self {
+    pub fn derive_child_with_tag(&self, index: ChildIndex, tag: &[u8]) -> Self {
         Self {
             inner: self.inner.derive_child_with_tag(index, tag),
         }

@@ -51,6 +51,17 @@ impl<C: Context> ConstantTimeEq for HardenedOnlyKey<C> {
 
 #[allow(non_snake_case)]
 impl<C: Context> HardenedOnlyKey<C> {
+    /// Constructs a hardened-only key from its parts.
+    ///
+    /// Crate-internal because we want this to only be used within specific contexts.
+    pub(crate) fn from_parts(sk: [u8; 32], chain_code: ChainCode) -> Self {
+        Self {
+            sk,
+            chain_code,
+            _context: PhantomData,
+        }
+    }
+
     /// Exposes the parts of this key.
     pub fn parts(&self) -> (&[u8; 32], &ChainCode) {
         (&self.sk, &self.chain_code)

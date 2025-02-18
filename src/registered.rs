@@ -67,7 +67,7 @@ impl SecretKey {
     ///
     /// - `zip_number` is the number of the ZIP defining the application protocol.
     ///   The corresponding hardened index (with empty tag) will be prepended to the
-    ///   `path`.
+    ///   `subpath` to obtain the full derivation path.
     /// - `context_string` is an identifier for the context in which this key will be
     ///   used. It must be globally unique.
     ///
@@ -80,12 +80,12 @@ impl SecretKey {
         context_string: &[u8],
         seed: &[u8],
         zip_number: u16,
-        path: &[(ChildIndex, &[u8])],
+        subpath: &[(ChildIndex, &[u8])],
     ) -> Self {
         let mut xsk = Self::master(context_string, seed)
             .derive_child_with_tag(ChildIndex::hardened(u32::from(zip_number)), &[]);
 
-        for (i, tag) in path {
+        for (i, tag) in subpath {
             xsk = xsk.derive_child_with_tag(*i, tag);
         }
         xsk

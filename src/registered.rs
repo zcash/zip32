@@ -16,7 +16,7 @@
 //! or hardware using this mechanism. The ZIP process allows for subsequent updates
 //! and corrections.
 //!
-//! The functionality of this module is similar to that of the [`crate::arbitrary`]
+//! The functionality of this module is similar to that of the [`zip32::arbitrary`]
 //! module, with the following improvements:
 //!
 //! - The key tree is associated with the ZIP that should document it, and cannot
@@ -26,7 +26,7 @@
 //!   without any cryptographic unsafety.
 //!
 //! The keys derived by the functions in this module will be unrelated to any keys
-//! derived by functions in the [`crate::arbitrary`] module, even if the same context
+//! derived by functions in the [`zip32::arbitrary`] module, even if the same context
 //! string and seed are used.
 //!
 //! Defined in [ZIP 32: Registered key derivation][regkd].
@@ -34,6 +34,7 @@
 //! [hardened key derivation framework]: crate::hardened_only
 //! [regkd]: https://zips.z.cash/zip-0032#specification-registered-key-derivation
 //! [ZIP process]: https://zips.z.cash/zip-0000
+//! [`zip32::arbitrary`]: `crate::arbitrary`
 
 use zcash_spec::PrfExpand;
 

@@ -3,7 +3,7 @@
 //! Defined in [ZIP 32: Hardened-only key derivation][hkd].
 //!
 //! Any usage of the types in this module needs to have a corresponding ZIP (except via
-//! [`arbitrary::SecretKey`] but that is NOT RECOMMENDED for new protocols [adhockd]).
+//! [`arbitrary::SecretKey`] but that is [NOT RECOMMENDED for new protocols][adhockd]).
 //!
 //! [hkd]: https://zips.z.cash/zip-0032#specification-hardened-only-key-derivation
 //! [adhockd]: https://zips.z.cash/zip-0032#specification-ad-hoc-key-derivation-deprecated

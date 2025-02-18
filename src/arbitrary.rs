@@ -115,7 +115,7 @@ impl SecretKey {
     /// unsafe because there is no way to enforce that restriction.
     #[deprecated(
         since = "0.1.4",
-        note = "Use [`zip32::registered::full_width_from_path`] instead."
+        note = "Use [`zip32::registered::cryptovalue_from_subpath`] instead."
     )]
     pub fn into_full_width_key(self) -> [u8; 64] {
         let (sk, c) = self.inner.into_parts();

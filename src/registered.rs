@@ -76,14 +76,14 @@ impl SecretKey {
     /// Panics if:
     /// - the context string is empty or longer than 252 bytes.
     /// - the seed is shorter than 32 bytes or longer than 252 bytes.
-    pub fn from_path(
+    pub fn from_subpath(
         context_string: &[u8],
         seed: &[u8],
         zip_number: u16,
         subpath: &[(ChildIndex, &[u8])],
     ) -> Self {
         let mut xsk = Self::master(context_string, seed)
-            .derive_child_with_tag(ChildIndex::hardened(u32::from(zip_number)), &[]);
+            .derive_child(ChildIndex::hardened(u32::from(zip_number)));
 
         for (i, tag) in subpath {
             xsk = xsk.derive_child_with_tag(*i, tag);
@@ -94,7 +94,8 @@ impl SecretKey {
     /// Constructs a key for a registered application protocol from its constituent parts.
     ///
     /// This is a low-level API. The constructor must only be called with parts that were
-    /// obtained from previous calls to [`Self::data`] and [`Self::chain_code`].
+    /// obtained from previous calls to [`key.data()`][`Self::data`] and
+    /// [`key.chain_code()`][`Self::chain_code`] for some `key: registered::SecretKey`.
     pub fn from_parts(sk: [u8; 32], chain_code: ChainCode) -> Self {
         Self {
             inner: HardenedOnlyKey::from_parts(sk, chain_code),
@@ -103,7 +104,7 @@ impl SecretKey {
 
     /// Generates the master key of a registered extended secret key.
     /// This should not be exposed directly. It is defined as an intermediate
-    /// valid in [ZIP 32: Registered subtree root key generation][regroot].
+    /// value in [ZIP 32: Registered subtree root key generation][regroot].
     ///
     /// [regroot]: https://zips.z.cash/zip-0032#registered-subtree-root-key-generation
     ///
@@ -118,6 +119,14 @@ impl SecretKey {
         })
     }
 
+    /// Derives a child key from a parent key at a given index and empty tag.
+    ///
+    /// This is a convenience function equivalent to
+    /// `self.derive_child_with_tag(index, &[])`.
+    pub fn derive_child(&self, index: ChildIndex) -> Self {
+        self.derive_child_with_tag(index, &[])
+    }
+
     /// Derives a child key from a parent key at a given index and (possibly empty) tag.
     ///
     /// Defined in [ZIP 32: Registered child key derivation][regckd].
@@ -127,6 +136,16 @@ impl SecretKey {
         Self {
             inner: self.inner.derive_child_with_tag(index, tag),
         }
+    }
+
+    /// Derives a 64-byte child cryptovalue from a parent key at a given index
+    /// and (possibly empty) tag.
+    ///
+    /// Defined in [ZIP 32: Full-width child cryptovalue derivation][fwccd].
+    ///
+    /// [fwccd]: https://zips.z.cash/zip-0032#full-width-child-cryptovalue-derivation
+    pub fn derive_child_cryptovalue(&self, index: ChildIndex, tag: &[u8]) -> [u8; 64] {
+        self.inner.ckdh_internal(index, 1, tag)
     }
 
     /// Returns the key material for this key.
@@ -140,13 +159,13 @@ impl SecretKey {
     }
 }
 
-/// Derives 64 bytes of key material for a registered application protocol at
-/// the given non-empty path from the given seed. Each path element may consist
-/// of an index and (possibly empty) tag.
+/// Derives a 64-byte cryptovalue (for use as key material for example), for a
+/// registered application protocol at the given non-empty subpath from the given
+/// seed. Each subpath element may consist of an index and (possibly empty) tag.
 ///
 /// - `zip_number` is the number of the ZIP defining the application protocol.
 ///   The corresponding hardened index (with empty tag) will be prepended to the
-///   `path`.
+///   `subpath` to obtain the ZIP 32 path.
 /// - `context_string` is an identifier for the context in which this key will be
 ///   used. It must be globally unique.
 ///
@@ -155,41 +174,41 @@ impl SecretKey {
 /// Panics if:
 /// - the context string is empty or longer than 252 bytes.
 /// - the seed is shorter than 32 bytes or longer than 252 bytes.
-/// - the path is empty.
-pub fn full_width_from_path(
+/// - the subpath is empty.
+pub fn cryptovalue_from_subpath(
     context_string: &[u8],
     seed: &[u8],
     zip_number: u16,
-    path: &[(ChildIndex, &[u8])],
+    subpath: &[(ChildIndex, &[u8])],
 ) -> [u8; 64] {
     // We can't use NonEmpty because it requires allocation.
-    assert!(!path.is_empty());
+    assert!(!subpath.is_empty());
 
     let mut xsk = SecretKey::master(context_string, seed)
-        .derive_child_with_tag(ChildIndex::hardened(u32::from(zip_number)), &[]);
+        .derive_child(ChildIndex::hardened(u32::from(zip_number)));
 
-    for (i, tag) in path.iter().take(path.len() - 1) {
+    for (i, tag) in subpath.iter().take(subpath.len() - 1) {
         xsk = xsk.derive_child_with_tag(*i, tag);
     }
-    let (i, tag) = path.last().expect("nonempty");
-    xsk.inner.derive_full_width(*i, tag)
+    let (i, tag) = subpath.last().expect("nonempty");
+    xsk.derive_child_cryptovalue(*i, tag)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{full_width_from_path, ChildIndex, SecretKey};
+    use super::{cryptovalue_from_subpath, ChildIndex, SecretKey};
 
     #[test]
     #[should_panic]
-    fn test_full_width_from_empty_path_panics() {
-        full_width_from_path(&[0], &[0; 32], 32, &[]);
+    fn test_cryptovalue_from_empty_subpath_panics() {
+        cryptovalue_from_subpath(&[0], &[0; 32], 32, &[]);
     }
 
     struct TestVector {
         context_string: &'static [u8],
         seed: [u8; 32],
         zip_number: u16,
-        path: &'static [(u32, &'static [u8])],
+        subpath: &'static [(u32, &'static [u8])],
         sk: [u8; 32],
         c: [u8; 32],
         full_width: Option<[u8; 64]>,
@@ -208,7 +227,7 @@ mod tests {
                 0x1c, 0x1d, 0x1e, 0x1f,
             ],
             zip_number: 1,
-            path: &[],
+            subpath: &[],
             sk: [
                 0x53, 0xa7, 0x15, 0x07, 0xe6, 0xdf, 0xda, 0x58, 0x8b, 0xc1, 0xe1, 0x38, 0xc2, 0x65,
                 0x7c, 0x92, 0x69, 0xe5, 0x5f, 0x5d, 0x9b, 0x99, 0xe3, 0x88, 0x7c, 0x13, 0x40, 0x08,
@@ -232,7 +251,7 @@ mod tests {
                 0x1c, 0x1d, 0x1e, 0x1f,
             ],
             zip_number: 1,
-            path: &[(
+            subpath: &[(
                 2147483650,
                 &[
                     0x74, 0x72, 0x61, 0x6e, 0x73, 0x20, 0x72, 0x69, 0x67, 0x68, 0x74, 0x73, 0x20,
@@ -269,7 +288,7 @@ mod tests {
                 0x1c, 0x1d, 0x1e, 0x1f,
             ],
             zip_number: 1,
-            path: &[
+            subpath: &[
                 (
                     2147483650,
                     &[
@@ -303,18 +322,19 @@ mod tests {
     #[test]
     fn test_vectors() {
         for tv in TEST_VECTORS {
-            let path = tv
-                .path
+            let subpath = tv
+                .subpath
                 .iter()
                 .map(|(i, tag)| (ChildIndex::from_index(*i).expect("hardened"), *tag))
                 .collect::<alloc::vec::Vec<_>>();
 
-            let sk = SecretKey::from_path(tv.context_string, &tv.seed, tv.zip_number, &path);
+            let sk = SecretKey::from_subpath(tv.context_string, &tv.seed, tv.zip_number, &subpath);
             assert_eq!(sk.data(), &tv.sk);
             assert_eq!(sk.chain_code().as_bytes(), &tv.c);
 
-            let fw = (!path.is_empty())
-                .then(|| full_width_from_path(tv.context_string, &tv.seed, tv.zip_number, &path));
+            let fw = (!subpath.is_empty()).then(|| {
+                cryptovalue_from_subpath(tv.context_string, &tv.seed, tv.zip_number, &subpath)
+            });
             assert_eq!(&fw, &tv.full_width);
             if let Some(fw) = fw {
                 assert_ne!(&fw[..32], &tv.sk);

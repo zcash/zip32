@@ -18,7 +18,7 @@ use zcash_spec::{PrfExpand, VariableLengthSlice};
 use crate::{ChainCode, ChildIndex};
 
 pub(crate) type HardenedOnlyCkdDomain =
-    PrfExpand<([u8; 32], [u8; 4], Option<(u8, VariableLengthSlice)>)>;
+    PrfExpand<([u8; 32], [u8; 4], [u8; 1], VariableLengthSlice)>;
 
 /// The context in which hardened-only key derivation is instantiated.
 pub trait Context {
@@ -92,12 +92,10 @@ impl<C: Context> HardenedOnlyKey<C> {
         Self::derive_from(&I)
     }
 
-    /// Derives a child key from a parent key at a given index. This is
-    /// equivalent to `self.derive_child_with_tag(index, &[])`.
+    /// Derives a child key from a parent key at a given index and empty tag.
     ///
-    /// Defined in [ZIP 32: Hardened-only child key derivation][ckdh].
-    ///
-    /// [ckdh]: https://zips.z.cash/zip-0032#hardened-only-child-key-derivation
+    /// This is a convenience function equivalent to
+    /// `self.derive_child_with_tag(index, &[])`.
     pub fn derive_child(&self, index: ChildIndex) -> Self {
         self.derive_child_with_tag(index, &[])
     }
@@ -109,26 +107,17 @@ impl<C: Context> HardenedOnlyKey<C> {
     ///
     /// [ckdh]: https://zips.z.cash/zip-0032#hardened-only-child-key-derivation
     pub fn derive_child_with_tag(&self, index: ChildIndex, tag: &[u8]) -> Self {
-        Self::derive_from(&self.ckdh_internal(index, tag, false))
-    }
-
-    /// Derives a full-width child key cryptovalue from a parent key at a given
-    /// index and (possibly empty) tag.
-    ///
-    /// Defined in [ZIP 32: Hardened-only child key derivation][ckdh].
-    ///
-    /// [ckdh]: https://zips.z.cash/zip-0032#hardened-only-child-key-derivation
-    pub fn derive_full_width(&self, index: ChildIndex, tag: &[u8]) -> [u8; 64] {
-        self.ckdh_internal(index, tag, true)
+        Self::derive_from(&self.ckdh_internal(index, 0, tag))
     }
 
     /// Defined in [ZIP 32: Hardened-only child key derivation][ckdh].
     ///
+    /// This returns `I` rather than `(I_L, I_R)` so that we don't have
+    /// to re-concatenate the pieces, e.g. when using it in
+    /// [`crate::registered::SecretKey::derive_child_cryptovalue`].
+    ///
     /// [ckdh]: https://zips.z.cash/zip-0032#hardened-only-child-key-derivation
-    fn ckdh_internal(&self, index: ChildIndex, tag: &[u8], full_width_leaf: bool) -> [u8; 64] {
-        let lead_and_tag: Option<(u8, &[u8])> =
-            (!tag.is_empty() || full_width_leaf).then(|| (u8::from(full_width_leaf), tag));
-
+    pub(crate) fn ckdh_internal(&self, index: ChildIndex, lead: u8, tag: &[u8]) -> [u8; 64] {
         // One of these depending on lead and tag:
         // - I := PRF^Expand(c_par, [Context.CKDDomain] || sk_par || I2LEOSP(i))
         // - I := PRF^Expand(c_par, [Context.CKDDomain] || sk_par || I2LEOSP(i) || [lead] || tag)
@@ -136,7 +125,8 @@ impl<C: Context> HardenedOnlyKey<C> {
             self.chain_code.as_bytes(),
             &self.sk,
             &index.index().to_le_bytes(),
-            lead_and_tag,
+            &[lead],
+            tag,
         )
     }
 

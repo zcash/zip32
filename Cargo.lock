@@ -51,8 +51,9 @@ checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 
 [[package]]
 name = "zcash_spec"
-version = "0.1.2"
-source = "git+https://github.com/daira/zcash_spec.git?rev=295ed474426a8c2954a534b0bd72b4f4bf0696d9#295ed474426a8c2954a534b0bd72b4f4bf0696d9"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ded3f58b93486aa79b85acba1001f5298f27a46489859934954d262533ee2915"
 dependencies = [
  "blake2b_simd",
 ]

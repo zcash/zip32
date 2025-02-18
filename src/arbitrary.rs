@@ -30,9 +30,9 @@ use crate::{
 
 use super::with_ikm;
 
-struct Arbitrary;
+struct Adhoc;
 
-impl Context for Arbitrary {
+impl Context for Adhoc {
     const MKG_DOMAIN: [u8; 16] = *b"ZcashArbitraryKD";
     const CKD_DOMAIN: HardenedOnlyCkdDomain = PrfExpand::ADHOC_ZIP32_CHILD;
 }
@@ -43,7 +43,7 @@ impl Context for Arbitrary {
 ///
 /// [adhockd]: https://zips.z.cash/zip-0032#specification-ad-hoc-key-derivation-deprecated
 pub struct SecretKey {
-    inner: HardenedOnlyKey<Arbitrary>,
+    inner: HardenedOnlyKey<Adhoc>,
 }
 
 impl SecretKey {

@@ -89,7 +89,7 @@ impl<C: Context> HardenedOnlyKey<C> {
             }
             I.finalize().as_bytes().try_into().expect("64-byte output")
         };
-        Self::derive_from(&I)
+        Self::from_bytes(&I)
     }
 
     /// Derives a child key from a parent key at a given index and empty tag.
@@ -107,7 +107,7 @@ impl<C: Context> HardenedOnlyKey<C> {
     ///
     /// [ckdh]: https://zips.z.cash/zip-0032#hardened-only-child-key-derivation
     pub fn derive_child_with_tag(&self, index: ChildIndex, tag: &[u8]) -> Self {
-        Self::derive_from(&self.ckdh_internal(index, 0, tag))
+        Self::from_bytes(&self.ckdh_internal(index, 0, tag))
     }
 
     /// Defined in [ZIP 32: Hardened-only child key derivation][ckdh].
@@ -130,7 +130,7 @@ impl<C: Context> HardenedOnlyKey<C> {
         )
     }
 
-    fn derive_from(I: &[u8; 64]) -> Self {
+    fn from_bytes(I: &[u8; 64]) -> Self {
         let (I_L, I_R) = I.split_at(32);
 
         // I_L is used as the spending key sk.

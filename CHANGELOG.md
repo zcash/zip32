@@ -6,6 +6,9 @@ and this library adheres to Rust's notion of
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.2.0] - 2025-02-20
+
 ### Added
 - `zip32::registered` module, implementing hardened-only key derivation for
   an application protocol specified in a ZIP.

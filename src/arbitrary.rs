@@ -1,56 +1,53 @@
-//! Arbitrary key derivation.
+//! Ad-hoc ("arbitrary") key derivation.
 //!
-//! In some contexts there is a need for deriving arbitrary keys with the same derivation
-//! path as existing key material (for example, deriving an arbitrary account-level key),
-//! without the need for ecosystem-wide coordination. The following instantiation of the
-//! [hardened key generation framework] may be used for this purpose.
+//! For compatibility with existing deployments, we define a mechanism to generate
+//! ad-hoc key trees for private use by applications, without ecosystem coordination,
+//! using the [hardened key derivation framework].
 //!
-//! Defined in [ZIP32: Arbitrary key derivation][arbkd].
+//! This used to be called "arbitrary key derivation" in ZIP 32, but that term caused
+//! confusion as to the applicability of the mechanism and so has been renamed to
+//! "ad-hoc key derivation". The module name is still `arbitrary` for compatibility.
 //!
-//! [hardened key generation framework]: crate::hardened_only
-//! [arbkd]: https://zips.z.cash/zip-0032#specification-arbitrary-key-derivation
+//! Since there is no guarantee of non-collision between different application protocols,
+//! and no way to tie these key trees to well-defined specification or documentation
+//! processes, use of this mechanism is NOT RECOMMENDED for new protocols.
+//!
+//! The keys derived by the functions in this module will be unrelated to any keys
+//! derived by functions in the [`crate::registered`] module, even if the same context
+//! string and seed are used.
+//!
+//! Defined in [ZIP 32: Ad-hoc key derivation (deprecated)][adhockd].
+//!
+//! [hardened key derivation framework]: crate::hardened_only
+//! [adhockd]: https://zips.z.cash/zip-0032#specification-ad-hoc-key-derivation-deprecated
 
 use zcash_spec::PrfExpand;
 
 use crate::{
-    hardened_only::{Context, HardenedOnlyKey},
+    hardened_only::{Context, HardenedOnlyCkdDomain, HardenedOnlyKey},
     ChainCode, ChildIndex,
 };
 
-struct Arbitrary;
+use super::with_ikm;
 
-impl Context for Arbitrary {
+struct Adhoc;
+
+impl Context for Adhoc {
     const MKG_DOMAIN: [u8; 16] = *b"ZcashArbitraryKD";
-    const CKD_DOMAIN: PrfExpand<([u8; 32], [u8; 4])> = PrfExpand::ARBITRARY_ZIP32_CHILD;
+    const CKD_DOMAIN: HardenedOnlyCkdDomain = PrfExpand::ADHOC_ZIP32_CHILD;
 }
 
-/// An arbitrary extended secret key.
+/// An ad-hoc extended secret key.
 ///
-/// Defined in [ZIP32: Arbitrary key derivation][arbkd].
+/// Defined in [ZIP 32: Ad-hoc key generation (deprecated)][adhockd].
 ///
-/// [arbkd]: https://zips.z.cash/zip-0032#specification-arbitrary-key-derivation
+/// [adhockd]: https://zips.z.cash/zip-0032#specification-ad-hoc-key-derivation-deprecated
 pub struct SecretKey {
-    inner: HardenedOnlyKey<Arbitrary>,
-}
-
-fn with_ikm<F, T>(context_string: &[u8], seed: &[u8], f: F) -> T
-where
-    F: FnOnce(&[&[u8]]) -> T,
-{
-    let context_len =
-        u8::try_from(context_string.len()).expect("context string should be at most 252 bytes");
-    assert!((1..=252).contains(&context_len));
-
-    let seed_len = u8::try_from(seed.len()).expect("seed should be at most 252 bytes");
-    assert!((32..=252).contains(&seed_len));
-
-    let ikm = &[&[context_len], context_string, &[seed_len], seed];
-
-    f(ikm)
+    inner: HardenedOnlyKey<Adhoc>,
 }
 
 impl SecretKey {
-    /// Derives an arbitrary key at the given path from the given seed.
+    /// Derives an ad-hoc key at the given path from the given seed.
     ///
     /// `context_string` is an identifier for the context in which this key will be used.
     /// It must be globally unique.
@@ -68,11 +65,11 @@ impl SecretKey {
         xsk
     }
 
-    /// Generates the master key of an Arbitrary extended secret key.
+    /// Generates the master key of an ad-hoc extended secret key.
     ///
-    /// Defined in [ZIP32: Arbitrary master key generation][mkgarb].
+    /// Defined in [ZIP 32: Ad-hoc master key generation (deprecated)][adhocmkg].
     ///
-    /// [mkgarb]: https://zips.z.cash/zip-0032#arbitrary-master-key-generation
+    /// [adhocmkg]: https://zips.z.cash/zip-0032#ad-hoc-master-key-generation-deprecated
     ///
     /// # Panics
     ///
@@ -87,21 +84,21 @@ impl SecretKey {
 
     /// Derives a child key from a parent key at a given index.
     ///
-    /// Defined in [ZIP32: Arbitrary-only child key derivation][ckdarb].
+    /// Defined in [ZIP 32: Ad-hoc child key derivation (deprecated)][adhocckd].
     ///
-    /// [ckdarb]: https://zips.z.cash/zip-0032#arbitrary-child-key-derivation
+    /// [adhocckd]: https://zips.z.cash/zip-0032#ad-hoc-child-key-derivation-deprecated
     fn derive_child(&self, index: ChildIndex) -> Self {
         Self {
             inner: self.inner.derive_child(index),
         }
     }
 
-    /// Returns the key material for this arbitrary key.
+    /// Returns the key material for this key.
     pub fn data(&self) -> &[u8; 32] {
         self.inner.parts().0
     }
 
-    /// Returns the chain code for this arbitrary key.
+    /// Returns the chain code for this key.
     pub fn chain_code(&self) -> &ChainCode {
         self.inner.parts().1
     }
@@ -114,7 +111,12 @@ impl SecretKey {
     ///
     /// Child keys MUST NOT be derived from any key on which this method is called. For
     /// the current API, this means that [`SecretKey::from_path`] MUST NOT be called with
-    /// a `path` for which this key's path is a prefix.
+    /// a `path` for which this key's path is a prefix. This API is cryptographically
+    /// unsafe because there is no way to enforce that restriction.
+    #[deprecated(
+        since = "0.1.4",
+        note = "Use [`zip32::registered::cryptovalue_from_subpath`] instead."
+    )]
     pub fn into_full_width_key(self) -> [u8; 64] {
         let (sk, c) = self.inner.into_parts();
         // Re-concatenate the key parts.
@@ -127,9 +129,7 @@ impl SecretKey {
 
 #[cfg(test)]
 mod tests {
-    use crate::{arbitrary::with_ikm, ChildIndex};
-
-    use super::SecretKey;
+    use super::{with_ikm, ChildIndex, SecretKey};
 
     struct TestVector {
         context_string: &'static [u8],
@@ -141,7 +141,7 @@ mod tests {
     }
 
     // From https://github.com/zcash-hackworks/zcash-test-vectors/blob/master/zip_0032_arbitrary.py
-    const TEST_VECTORS: &'static [TestVector] = &[
+    const TEST_VECTORS: &[TestVector] = &[
         TestVector {
             context_string: &[
                 0x5a, 0x63, 0x61, 0x73, 0x68, 0x20, 0x74, 0x65, 0x73, 0x74, 0x20, 0x76, 0x65, 0x63,
@@ -239,26 +239,89 @@ mod tests {
                 0xac, 0x19, 0x84, 0x29,
             ],
         },
+        TestVector {
+            context_string: &[
+                0x5a, 0x63, 0x61, 0x73, 0x68, 0x20, 0x74, 0x65, 0x73, 0x74, 0x20, 0x76, 0x65, 0x63,
+                0x74, 0x6f, 0x72, 0x73,
+            ],
+            seed: [
+                0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
+                0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b,
+                0x1c, 0x1d, 0x1e, 0x1f,
+            ],
+            ikm: None,
+            path: &[2147483680],
+            sk: [
+                0xc4, 0x30, 0xc4, 0xde, 0xfd, 0x03, 0xd7, 0x57, 0x8b, 0x2b, 0xb0, 0x9e, 0x58, 0x13,
+                0x5c, 0xdd, 0x1d, 0x7b, 0x7c, 0x97, 0x5f, 0x01, 0xa8, 0x90, 0x84, 0x7e, 0xe0, 0xb5,
+                0xc4, 0x68, 0xbc, 0x98,
+            ],
+            c: [
+                0x0f, 0x47, 0x37, 0x89, 0xfe, 0x7d, 0x55, 0x85, 0xb7, 0x9a, 0xd5, 0xf7, 0xe0, 0xa4,
+                0x69, 0xd9, 0xa3, 0x01, 0x46, 0x64, 0x77, 0x64, 0x48, 0x51, 0x50, 0xdb, 0x78, 0xd7,
+                0x20, 0x9d, 0xcb, 0x30,
+            ],
+        },
+        TestVector {
+            context_string: &[
+                0x5a, 0x63, 0x61, 0x73, 0x68, 0x20, 0x74, 0x65, 0x73, 0x74, 0x20, 0x76, 0x65, 0x63,
+                0x74, 0x6f, 0x72, 0x73,
+            ],
+            seed: [
+                0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
+                0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b,
+                0x1c, 0x1d, 0x1e, 0x1f,
+            ],
+            ikm: None,
+            path: &[2147483680, 2147483781],
+            sk: [
+                0x43, 0xe5, 0x48, 0x46, 0x79, 0xfd, 0xfa, 0x0f, 0x61, 0x76, 0xae, 0x86, 0x79, 0x5d,
+                0x0d, 0x44, 0xc4, 0x0e, 0x14, 0x9e, 0xf4, 0xba, 0x1b, 0x0e, 0x2e, 0xbd, 0x88, 0x3c,
+                0x71, 0xf4, 0x91, 0x87,
+            ],
+            c: [
+                0xdb, 0x42, 0xc3, 0xb7, 0x25, 0xf3, 0x24, 0x59, 0xb2, 0xcf, 0x82, 0x15, 0x41, 0x8b,
+                0x8e, 0x8f, 0x8e, 0x7b, 0x1b, 0x3f, 0x4a, 0xba, 0x2f, 0x5b, 0x5e, 0x81, 0x29, 0xe6,
+                0xf0, 0x57, 0x57, 0x84,
+            ],
+        },
+        TestVector {
+            context_string: &[
+                0x5a, 0x63, 0x61, 0x73, 0x68, 0x20, 0x74, 0x65, 0x73, 0x74, 0x20, 0x76, 0x65, 0x63,
+                0x74, 0x6f, 0x72, 0x73,
+            ],
+            seed: [
+                0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
+                0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b,
+                0x1c, 0x1d, 0x1e, 0x1f,
+            ],
+            ikm: None,
+            path: &[2147483680, 2147483781, 2147483648],
+            sk: [
+                0xbf, 0x60, 0x07, 0x83, 0x62, 0xa0, 0x92, 0x34, 0xfc, 0xbc, 0x6b, 0xf6, 0xc8, 0xa8,
+                0x7b, 0xde, 0x9f, 0xc7, 0x37, 0x76, 0xbf, 0x93, 0xf3, 0x7a, 0xdb, 0xcc, 0x43, 0x9a,
+                0x85, 0x57, 0x4a, 0x9a,
+            ],
+            c: [
+                0x2b, 0x65, 0x7e, 0x08, 0xf6, 0x7a, 0x57, 0x0c, 0x53, 0xb9, 0xed, 0x30, 0x61, 0x1e,
+                0x6a, 0x2f, 0x82, 0x26, 0x62, 0xb4, 0x88, 0x7a, 0x8c, 0xfb, 0x46, 0x9e, 0x9d, 0x0d,
+                0x98, 0x17, 0x01, 0x1a,
+            ],
+        },
     ];
 
     #[test]
     fn test_vectors() {
         let context_string = b"Zcash test vectors";
-        let full_path = [
-            ChildIndex::hardened(1),
-            ChildIndex::hardened(2),
-            ChildIndex::hardened(3),
-        ];
 
-        for (i, tv) in TEST_VECTORS.iter().enumerate() {
+        for tv in TEST_VECTORS {
             assert_eq!(tv.context_string, context_string);
 
             let path = tv
                 .path
-                .into_iter()
+                .iter()
                 .map(|i| ChildIndex::from_index(*i).expect("hardened"))
                 .collect::<alloc::vec::Vec<_>>();
-            assert_eq!(&full_path[..i], &path);
 
             // The derived master key should be identical to the key at the empty path.
             if let Some(mut tv_ikm) = tv.ikm {

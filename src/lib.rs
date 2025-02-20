@@ -21,6 +21,7 @@ use subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 pub mod arbitrary;
 pub mod fingerprint;
 pub mod hardened_only;
+pub mod registered;
 
 /// A type-safe wrapper for account identifiers.
 ///
@@ -87,6 +88,24 @@ impl core::fmt::Display for TryFromIntError {
 #[cfg(feature = "std")]
 impl std::error::Error for TryFromIntError {}
 
+// Helper function for arbitrary and registered master key generation.
+
+pub(crate) fn with_ikm<F, T>(context_string: &[u8], seed: &[u8], f: F) -> T
+where
+    F: FnOnce(&[&[u8]]) -> T,
+{
+    let context_len =
+        u8::try_from(context_string.len()).expect("context string should be at most 252 bytes");
+    assert!((1..=252).contains(&context_len));
+
+    let seed_len = u8::try_from(seed.len()).expect("seed should be at most 252 bytes");
+    assert!((32..=252).contains(&seed_len));
+
+    let ikm = &[&[context_len], context_string, &[seed_len], seed];
+
+    f(ikm)
+}
+
 // ZIP 32 structures
 
 /// A child index for a derived key.
@@ -127,6 +146,9 @@ impl ChildIndex {
     pub fn index(&self) -> u32 {
         self.0
     }
+
+    /// A `ChildIndex` sometimes employed for private-use subtrees.
+    pub const PRIVATE_USE: Self = Self::hardened(0x7fff_ffff);
 }
 
 /// A value that is needed, in addition to a spending key, in order to derive descendant
@@ -363,7 +385,7 @@ mod tests {
         let max_di = DiversifierIndex([
             0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         ]);
-        assert_eq!(u128::try_from(max_di), Ok(0x00ff_ffff_ffff_ffff_ffff_ffff));
+        assert_eq!(u128::from(max_di), 0x00ff_ffff_ffff_ffff_ffff_ffff);
         assert_eq!(
             DiversifierIndex::try_from(0x00ff_ffff_ffff_ffff_ffff_ffff_u128).unwrap(),
             max_di,

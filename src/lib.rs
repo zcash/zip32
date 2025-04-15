@@ -73,6 +73,18 @@ impl AccountId {
     pub fn next(&self) -> Option<Self> {
         Self::try_from(self.0 + 1).ok()
     }
+
+    /// Constant function to construct an account ID from a u32.
+    ///
+    /// # Panics
+    /// Panics if the provided value is >= 2^31
+    pub const fn const_from_u32(value: u32) -> Self {
+        if value < (1 << 31) {
+            Self(value)
+        } else {
+            panic!("Account IDs must be in the range 0..2^31");
+        }
+    }
 }
 
 /// The error type returned when a checked integral type conversion fails.

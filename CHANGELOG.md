@@ -7,6 +7,9 @@ and this library adheres to Rust's notion of
 
 ## [Unreleased]
 
+### Added
+- `zip32::AccountId::const_from_u32`
+
 ## [0.2.0] - 2025-02-20
 
 ### Added

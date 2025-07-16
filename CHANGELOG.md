@@ -9,6 +9,10 @@ and this library adheres to Rust's notion of
 
 ### Added
 - `zip32::AccountId::const_from_u32`
+- `zip32::fingerprint`:
+  - `impl {FromStr, Display} for SeedFingerprint`, providing the Bech32m
+    encoding of a ZIP 32 seed fingerprint.
+  - `ParseError`
 
 ## [0.2.0] - 2025-02-20
 

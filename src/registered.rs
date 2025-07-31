@@ -265,7 +265,11 @@ pub fn cryptovalue_from_subpath(
 
 #[cfg(test)]
 mod tests {
-    use crate::registered::PathElement;
+    use alloc::string::ToString;
+
+    use assert_matches::assert_matches;
+
+    use crate::{fingerprint::SeedFingerprint, registered::PathElement};
 
     use super::{cryptovalue_from_subpath, ChildIndex, DerivationError, SecretKey};
 
@@ -280,6 +284,7 @@ mod tests {
     struct TestVector {
         context_string: &'static [u8],
         seed: [u8; 32],
+        seedfp: &'static str,
         zip_number: u16,
         subpath: &'static [(u32, &'static [u8])],
         sk: [u8; 32],
@@ -299,6 +304,7 @@ mod tests {
                 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b,
                 0x1c, 0x1d, 0x1e, 0x1f,
             ],
+            seedfp: "zip32seedfp1mmlkqnpyvug0w9mdatgz4f6x7t7c65uf7urj24kuk42lm0j78t3sne2h0z",
             zip_number: 1,
             subpath: &[],
             sk: [
@@ -323,6 +329,7 @@ mod tests {
                 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b,
                 0x1c, 0x1d, 0x1e, 0x1f,
             ],
+            seedfp: "zip32seedfp1mmlkqnpyvug0w9mdatgz4f6x7t7c65uf7urj24kuk42lm0j78t3sne2h0z",
             zip_number: 1,
             subpath: &[(
                 2147483650,
@@ -360,6 +367,7 @@ mod tests {
                 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b,
                 0x1c, 0x1d, 0x1e, 0x1f,
             ],
+            seedfp: "zip32seedfp1mmlkqnpyvug0w9mdatgz4f6x7t7c65uf7urj24kuk42lm0j78t3sne2h0z",
             zip_number: 1,
             subpath: &[
                 (
@@ -395,6 +403,10 @@ mod tests {
     #[test]
     fn test_vectors() {
         for tv in TEST_VECTORS {
+            let seedfp = SeedFingerprint::from_seed(&tv.seed).unwrap();
+            assert_eq!(seedfp.to_string(), tv.seedfp);
+            assert_matches!(tv.seedfp.parse::<SeedFingerprint>(), Ok(fp) if fp == seedfp);
+
             let subpath = tv
                 .subpath
                 .iter()

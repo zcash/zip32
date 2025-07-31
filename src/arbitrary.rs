@@ -129,11 +129,18 @@ impl SecretKey {
 
 #[cfg(test)]
 mod tests {
+    use alloc::string::ToString;
+
+    use assert_matches::assert_matches;
+
+    use crate::fingerprint::SeedFingerprint;
+
     use super::{with_ikm, ChildIndex, SecretKey};
 
     struct TestVector {
         context_string: &'static [u8],
         seed: [u8; 32],
+        seedfp: &'static str,
         ikm: Option<&'static [u8]>,
         path: &'static [u32],
         sk: [u8; 32],
@@ -152,6 +159,7 @@ mod tests {
                 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b,
                 0x1c, 0x1d, 0x1e, 0x1f,
             ],
+            seedfp: "zip32seedfp1mmlkqnpyvug0w9mdatgz4f6x7t7c65uf7urj24kuk42lm0j78t3sne2h0z",
             ikm: Some(&[
                 0x12, 0x5a, 0x63, 0x61, 0x73, 0x68, 0x20, 0x74, 0x65, 0x73, 0x74, 0x20, 0x76, 0x65,
                 0x63, 0x74, 0x6f, 0x72, 0x73, 0x20, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
@@ -180,6 +188,7 @@ mod tests {
                 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b,
                 0x1c, 0x1d, 0x1e, 0x1f,
             ],
+            seedfp: "zip32seedfp1mmlkqnpyvug0w9mdatgz4f6x7t7c65uf7urj24kuk42lm0j78t3sne2h0z",
             ikm: None,
             path: &[2147483649],
             sk: [
@@ -203,6 +212,7 @@ mod tests {
                 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b,
                 0x1c, 0x1d, 0x1e, 0x1f,
             ],
+            seedfp: "zip32seedfp1mmlkqnpyvug0w9mdatgz4f6x7t7c65uf7urj24kuk42lm0j78t3sne2h0z",
             ikm: None,
             path: &[2147483649, 2147483650],
             sk: [
@@ -226,6 +236,7 @@ mod tests {
                 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b,
                 0x1c, 0x1d, 0x1e, 0x1f,
             ],
+            seedfp: "zip32seedfp1mmlkqnpyvug0w9mdatgz4f6x7t7c65uf7urj24kuk42lm0j78t3sne2h0z",
             ikm: None,
             path: &[2147483649, 2147483650, 2147483651],
             sk: [
@@ -249,6 +260,7 @@ mod tests {
                 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b,
                 0x1c, 0x1d, 0x1e, 0x1f,
             ],
+            seedfp: "zip32seedfp1mmlkqnpyvug0w9mdatgz4f6x7t7c65uf7urj24kuk42lm0j78t3sne2h0z",
             ikm: None,
             path: &[2147483680],
             sk: [
@@ -272,6 +284,7 @@ mod tests {
                 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b,
                 0x1c, 0x1d, 0x1e, 0x1f,
             ],
+            seedfp: "zip32seedfp1mmlkqnpyvug0w9mdatgz4f6x7t7c65uf7urj24kuk42lm0j78t3sne2h0z",
             ikm: None,
             path: &[2147483680, 2147483781],
             sk: [
@@ -295,6 +308,7 @@ mod tests {
                 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b,
                 0x1c, 0x1d, 0x1e, 0x1f,
             ],
+            seedfp: "zip32seedfp1mmlkqnpyvug0w9mdatgz4f6x7t7c65uf7urj24kuk42lm0j78t3sne2h0z",
             ikm: None,
             path: &[2147483680, 2147483781, 2147483648],
             sk: [
@@ -316,6 +330,10 @@ mod tests {
 
         for tv in TEST_VECTORS {
             assert_eq!(tv.context_string, context_string);
+
+            let seedfp = SeedFingerprint::from_seed(&tv.seed).unwrap();
+            assert_eq!(seedfp.to_string(), tv.seedfp);
+            assert_matches!(tv.seedfp.parse::<SeedFingerprint>(), Ok(fp) if fp == seedfp);
 
             let path = tv
                 .path

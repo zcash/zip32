@@ -7,6 +7,8 @@ and this library adheres to Rust's notion of
 
 ## [Unreleased]
 
+## [0.2.1] - 2025-09-17
+
 ### Added
 - `zip32::AccountId::const_from_u32`
 - `zip32::fingerprint`:

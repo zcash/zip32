@@ -42,11 +42,19 @@ impl ::core::fmt::Debug for SeedFingerprint {
 impl SeedFingerprint {
     /// Derives the fingerprint of the given seed bytes.
     ///
-    /// Returns `None` if the length of `seed_bytes` is less than 32 or greater than 252.
+    /// Returns `None` if the length of `seed_bytes` is less than 16 or greater than 252.
+    ///
+    /// The 16-byte minimum matches the minimum entropy required by [ZIP 315]
+    /// for wallet seeds, enabling fingerprinting of 128-bit master secrets such
+    /// as those produced by 20-word SLIP-39 shares. The seed length is bound
+    /// into the fingerprint input, so 16-byte and 32-byte seeds with identical
+    /// prefixes produce distinct fingerprints (no domain-separation collision).
+    ///
+    /// [ZIP 315]: https://zips.z.cash/zip-0315#wallet-seeds
     pub fn from_seed(seed_bytes: &[u8]) -> Option<SeedFingerprint> {
         let seed_len = seed_bytes.len();
 
-        if (32..=252).contains(&seed_len) {
+        if (16..=252).contains(&seed_len) {
             let seed_len: u8 = seed_len.try_into().unwrap();
             Some(SeedFingerprint(
                 Blake2bParams::new()
@@ -152,14 +160,40 @@ fn test_seed_fingerprint() {
     }
 }
 #[test]
-fn test_seed_fingerprint_is_none() {
-    let odd_seed = [
+fn test_seed_fingerprint_is_none_for_short_seed() {
+    // A 15-byte seed is below the 16-byte minimum and must be rejected.
+    let short_seed = [
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e,
+    ];
+
+    assert!(
+        SeedFingerprint::from_seed(&short_seed).is_none(),
+        "fingerprint from short seed should be `None`"
+    );
+}
+
+#[test]
+fn test_seed_fingerprint_accepts_16_byte_seed() {
+    // The minimum supported seed length is 16 bytes, matching the minimum
+    // wallet seed entropy specified in ZIP 315.
+    let seed_16 = [
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e,
         0x0f,
     ];
 
-    assert!(
-        SeedFingerprint::from_seed(&odd_seed).is_none(),
-        "fingerprint from short seed should be `None`"
+    let fp = SeedFingerprint::from_seed(&seed_16).expect("16-byte seed has valid length");
+
+    // The length byte is bound into the BLAKE2b input, so a 16-byte seed and
+    // a 32-byte seed sharing the same prefix produce distinct fingerprints.
+    let seed_32 = [
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e,
+        0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d,
+        0x1e, 0x1f,
+    ];
+    let fp_32 = SeedFingerprint::from_seed(&seed_32).expect("32-byte seed has valid length");
+    assert_ne!(
+        fp.to_bytes(),
+        fp_32.to_bytes(),
+        "different-length seeds must produce distinct fingerprints"
     );
 }

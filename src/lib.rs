@@ -111,7 +111,7 @@ where
     assert!((1..=252).contains(&context_len));
 
     let seed_len = u8::try_from(seed.len()).expect("seed should be at most 252 bytes");
-    assert!((32..=252).contains(&seed_len));
+    assert!((16..=252).contains(&seed_len));
 
     let ikm = &[&[context_len], context_string, &[seed_len], seed];
 

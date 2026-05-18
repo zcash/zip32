@@ -56,7 +56,7 @@ impl SecretKey {
     ///
     /// Panics if:
     /// - the context string is empty or longer than 252 bytes.
-    /// - the seed is shorter than 32 bytes or longer than 252 bytes.
+    /// - the seed is shorter than 16 bytes or longer than 252 bytes.
     pub fn from_path(context_string: &[u8], seed: &[u8], path: &[ChildIndex]) -> Self {
         let mut xsk = Self::master(context_string, seed);
         for i in path {
@@ -75,7 +75,7 @@ impl SecretKey {
     ///
     /// Panics if:
     /// - the context string is empty or longer than 252 bytes.
-    /// - the seed is shorter than 32 bytes or longer than 252 bytes.
+    /// - the seed is shorter than 16 bytes or longer than 252 bytes.
     fn master(context_string: &[u8], seed: &[u8]) -> Self {
         with_ikm(context_string, seed, |ikm| Self {
             inner: HardenedOnlyKey::master(ikm),

@@ -7,6 +7,23 @@ and this library adheres to Rust's notion of
 
 ## [Unreleased]
 
+### Changed
+- The minimum seed length accepted by `zip32` master-key derivation has been
+  reduced from 32 bytes to 16 bytes, matching the minimum wallet seed entropy
+  required by [ZIP 315]. This enables import of 128-bit master secrets such as
+  those produced by 20-word SLIP-39 shares. Affected APIs:
+  - `zip32::fingerprint::SeedFingerprint::from_seed`
+  - `zip32::arbitrary::SecretKey::{master, from_path}`
+  - `zip32::registered::SecretKey::from_subpath`
+  - `zip32::registered::cryptovalue_from_subpath`
+
+  The seed length is bound into the BLAKE2b input (via `with_ikm` and
+  `SeedFingerprint::from_seed`), so 16-byte and 32-byte seeds with identical
+  prefixes produce distinct outputs and no domain-separation collision is
+  introduced.
+
+[ZIP 315]: https://zips.z.cash/zip-0315#wallet-seeds
+
 ## [0.2.1] - 2025-09-17
 
 ### Added

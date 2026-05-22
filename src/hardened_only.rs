@@ -36,11 +36,20 @@ pub trait Context {
 /// Defined in [ZIP 32: Hardened-only key derivation][hkd].
 ///
 /// [hkd]: https://zips.z.cash/zip-0032#specification-hardened-only-key-derivation
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct HardenedOnlyKey<C: Context> {
     sk: [u8; 32],
     chain_code: ChainCode,
     _context: PhantomData<C>,
+}
+
+impl<C: Context> core::fmt::Debug for HardenedOnlyKey<C> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("HardenedOnlyKey")
+            .field("sk", &"...")
+            .field("chain_code", &"...")
+            .finish()
+    }
 }
 
 impl<C: Context> ConstantTimeEq for HardenedOnlyKey<C> {

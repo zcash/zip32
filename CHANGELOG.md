@@ -7,6 +7,23 @@ and this library adheres to Rust's notion of
 
 ## [Unreleased]
 
+### Added
+- `zeroize` feature flag, which enables the `zeroize` dependency (without its
+  default features, so `no_std` is preserved) and:
+  - `impl zeroize::Zeroize for zip32::ChainCode`
+  - `impl zeroize::{Zeroize, ZeroizeOnDrop} for zip32::hardened_only::HardenedOnlyKey`
+  - `impl zeroize::{Zeroize, ZeroizeOnDrop} for zip32::registered::SecretKey`
+  - `impl zeroize::{Zeroize, ZeroizeOnDrop} for zip32::arbitrary::SecretKey`
+  When enabled, `HardenedOnlyKey` (and therefore both `SecretKey` types) are
+  zeroized on drop, including every intermediate key produced while deriving
+  a path, and the intermediate 64-byte PRF outputs used during derivation.
+- `impl Debug for zip32::registered::SecretKey` and
+  `impl Debug for zip32::arbitrary::SecretKey` (redacted).
+
+### Changed
+- `impl Debug for zip32::hardened_only::HardenedOnlyKey` no longer prints the
+  secret key material; it now renders as `HardenedOnlyKey { .. }`.
+
 ## [0.2.1] - 2025-09-17
 
 ### Added

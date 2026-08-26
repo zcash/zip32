@@ -47,6 +47,8 @@ jobs:
         run: rustup target add ${{ matrix.target }}
       - name: Build crate
         run: cargo build --no-default-features --verbose --target ${{ matrix.target }}
+      - name: Build crate with zeroize
+        run: cargo build --no-default-features --features zeroize --verbose --target ${{ matrix.target }}
 
   clippy:
     name: Clippy (MSRV)

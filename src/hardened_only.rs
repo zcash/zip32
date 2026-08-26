@@ -9,7 +9,7 @@
 //! [adhockd]: https://zips.z.cash/zip-0032#specification-ad-hoc-key-derivation-deprecated
 //! [`arbitrary::SecretKey`]: crate::arbitrary::SecretKey
 
-use core::marker::PhantomData;
+use core::{fmt, marker::PhantomData};
 
 use blake2b_simd::Params as Blake2bParams;
 use subtle::{Choice, ConstantTimeEq};
@@ -35,12 +35,40 @@ pub trait Context {
 ///
 /// Defined in [ZIP 32: Hardened-only key derivation][hkd].
 ///
+/// If the `zeroize` feature is enabled, the key material is zeroized on drop.
+///
 /// [hkd]: https://zips.z.cash/zip-0032#specification-hardened-only-key-derivation
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct HardenedOnlyKey<C: Context> {
     sk: [u8; 32],
     chain_code: ChainCode,
     _context: PhantomData<C>,
+}
+
+impl<C: Context> fmt::Debug for HardenedOnlyKey<C> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Deliberately redacted: do not print secret key material.
+        f.debug_struct("HardenedOnlyKey").finish_non_exhaustive()
+    }
+}
+
+#[cfg(feature = "zeroize")]
+impl<C: Context> zeroize::Zeroize for HardenedOnlyKey<C> {
+    fn zeroize(&mut self) {
+        self.sk.zeroize();
+        self.chain_code.zeroize();
+    }
+}
+
+#[cfg(feature = "zeroize")]
+impl<C: Context> zeroize::ZeroizeOnDrop for HardenedOnlyKey<C> {}
+
+#[cfg(feature = "zeroize")]
+impl<C: Context> Drop for HardenedOnlyKey<C> {
+    fn drop(&mut self) {
+        use zeroize::Zeroize;
+        self.zeroize();
+    }
 }
 
 impl<C: Context> ConstantTimeEq for HardenedOnlyKey<C> {
@@ -68,7 +96,12 @@ impl<C: Context> HardenedOnlyKey<C> {
     }
 
     /// Decomposes this key into its parts.
+    ///
+    /// The caller takes responsibility for the returned key material; `self` is
+    /// zeroized on drop if the `zeroize` feature is enabled.
     pub(crate) fn into_parts(self) -> ([u8; 32], ChainCode) {
+        // Copy the parts out rather than moving them, so that `self` can still be
+        // dropped (and zeroized) normally.
         (self.sk, self.chain_code)
     }
 
@@ -79,7 +112,7 @@ impl<C: Context> HardenedOnlyKey<C> {
     /// [mkgh]: https://zips.z.cash/zip-0032#hardened-only-master-key-generation
     pub fn master(ikm: &[&[u8]]) -> Self {
         // I := BLAKE2b-512(Context.MKGDomain, IKM)
-        let I: [u8; 64] = {
+        let mut I: [u8; 64] = {
             let mut I = Blake2bParams::new()
                 .hash_length(64)
                 .personal(&C::MKG_DOMAIN)
@@ -89,7 +122,9 @@ impl<C: Context> HardenedOnlyKey<C> {
             }
             I.finalize().as_bytes().try_into().expect("64-byte output")
         };
-        Self::from_bytes(&I)
+        let key = Self::from_bytes(&I);
+        zeroize_prf_output(&mut I);
+        key
     }
 
     /// Derives a child key from a parent key at a given index and empty tag.
@@ -107,7 +142,10 @@ impl<C: Context> HardenedOnlyKey<C> {
     ///
     /// [ckdh]: https://zips.z.cash/zip-0032#hardened-only-child-key-derivation
     pub fn derive_child_with_tag(&self, index: ChildIndex, tag: &[u8]) -> Self {
-        Self::from_bytes(&self.ckdh_internal(index, 0, tag))
+        let mut I = self.ckdh_internal(index, 0, tag);
+        let key = Self::from_bytes(&I);
+        zeroize_prf_output(&mut I);
+        key
     }
 
     /// Defined in [ZIP 32: Hardened-only child key derivation][ckdh].
@@ -115,6 +153,9 @@ impl<C: Context> HardenedOnlyKey<C> {
     /// This returns `I` rather than `(I_L, I_R)` so that we don't have
     /// to re-concatenate the pieces, e.g. when using it in
     /// [`crate::registered::SecretKey::derive_child_cryptovalue`].
+    ///
+    /// The returned array contains secret key material; callers are responsible for
+    /// zeroizing it once they are done with it.
     ///
     /// [ckdh]: https://zips.z.cash/zip-0032#hardened-only-child-key-derivation
     pub(crate) fn ckdh_internal(&self, index: ChildIndex, lead: u8, tag: &[u8]) -> [u8; 64] {
@@ -144,5 +185,54 @@ impl<C: Context> HardenedOnlyKey<C> {
             chain_code,
             _context: PhantomData,
         }
+    }
+}
+
+/// Zeroizes a 64-byte PRF output that was used as intermediate key material.
+///
+/// This is a no-op unless the `zeroize` feature is enabled.
+#[inline]
+#[allow(unused_variables)]
+pub(crate) fn zeroize_prf_output(i: &mut [u8; 64]) {
+    #[cfg(feature = "zeroize")]
+    zeroize::Zeroize::zeroize(i);
+}
+
+#[cfg(all(test, feature = "zeroize"))]
+mod tests {
+    use zeroize::Zeroize;
+
+    use zcash_spec::PrfExpand;
+
+    use super::{Context, HardenedOnlyCkdDomain, HardenedOnlyKey};
+    use crate::{ChainCode, ChildIndex};
+
+    struct TestContext;
+
+    impl Context for TestContext {
+        const MKG_DOMAIN: [u8; 16] = *b"ZIP32TestContext";
+        const CKD_DOMAIN: HardenedOnlyCkdDomain = PrfExpand::REGISTERED_ZIP32_CHILD;
+    }
+
+    #[test]
+    fn zeroize_clears_key_material() {
+        let mut key = HardenedOnlyKey::<TestContext>::master(&[&[0xab; 32]])
+            .derive_child(ChildIndex::hardened(1));
+        {
+            let (sk, c) = key.parts();
+            assert_ne!(sk, &[0; 32]);
+            assert_ne!(c, &ChainCode::new([0; 32]));
+        }
+
+        key.zeroize();
+        let (sk, c) = key.parts();
+        assert_eq!(sk, &[0; 32]);
+        assert_eq!(c, &ChainCode::new([0; 32]));
+    }
+
+    #[test]
+    fn debug_is_redacted() {
+        let key = HardenedOnlyKey::<TestContext>::master(&[&[0xab; 32]]);
+        assert_eq!(alloc::format!("{:?}", key), "HardenedOnlyKey { .. }");
     }
 }

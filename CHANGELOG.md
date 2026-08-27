@@ -8,8 +8,8 @@ and this library adheres to Rust's notion of
 ## [Unreleased]
 
 ### Added
-- `zeroize` feature flag, which enables the `zeroize` dependency (without its
-  default features, so `no_std` is preserved) and:
+- `zeroize` feature flag (enabled by default), which enables the `zeroize`
+  dependency (without its default features, so `no_std` is preserved) and:
   - `impl zeroize::Zeroize for zip32::ChainCode`
   - `impl zeroize::{Zeroize, ZeroizeOnDrop} for zip32::hardened_only::HardenedOnlyKey`
   - `impl zeroize::{Zeroize, ZeroizeOnDrop} for zip32::registered::SecretKey`

@@ -19,10 +19,14 @@ blake2b_simd = { version = "1", default-features = false }
 memuse = { version = "0.2.2", default-features = false }
 subtle = { version = "2.2.3", default-features = false }
 zcash_spec = "0.2.1"
+zeroize = { version = "1", optional = true, default-features = false }
 
 [dev-dependencies]
 assert_matches = "1.5"
 
 [features]
-default = ["std"]
+default = ["std", "zeroize"]
 std = ["memuse/std"]
+
+## Zeroizes secret key material on drop, and exposes `Zeroize` impls.
+zeroize = ["dep:zeroize"]

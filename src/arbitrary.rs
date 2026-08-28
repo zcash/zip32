@@ -28,7 +28,7 @@ use crate::{
     ChainCode, ChildIndex,
 };
 
-use super::with_ikm;
+use super::{with_ikm, zeroize_parts};
 
 struct Adhoc;
 
@@ -41,10 +41,29 @@ impl Context for Adhoc {
 ///
 /// Defined in [ZIP 32: Ad-hoc key generation (deprecated)][adhockd].
 ///
+/// If the `zeroize` feature is enabled, the key material is zeroized on drop.
+///
 /// [adhockd]: https://zips.z.cash/zip-0032#specification-ad-hoc-key-derivation-deprecated
 pub struct SecretKey {
     inner: HardenedOnlyKey<Adhoc>,
 }
+
+impl core::fmt::Debug for SecretKey {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        // Deliberately redacted: do not print secret key material.
+        f.debug_struct("SecretKey").finish_non_exhaustive()
+    }
+}
+
+#[cfg(feature = "zeroize")]
+impl zeroize::Zeroize for SecretKey {
+    fn zeroize(&mut self) {
+        self.inner.zeroize();
+    }
+}
+
+#[cfg(feature = "zeroize")]
+impl zeroize::ZeroizeOnDrop for SecretKey {}
 
 impl SecretKey {
     /// Derives an ad-hoc key at the given path from the given seed.
@@ -117,12 +136,16 @@ impl SecretKey {
         since = "0.1.4",
         note = "Use [`zip32::registered::cryptovalue_from_subpath`] instead."
     )]
+    ///
+    /// The returned array is secret key material; the caller is responsible for
+    /// zeroizing it once it is no longer needed.
     pub fn into_full_width_key(self) -> [u8; 64] {
-        let (sk, c) = self.inner.into_parts();
+        let (mut sk, mut c) = self.inner.into_parts();
         // Re-concatenate the key parts.
         let mut key = [0; 64];
         key[..32].copy_from_slice(&sk);
         key[32..].copy_from_slice(&c.0);
+        zeroize_parts(&mut sk, &mut c);
         key
     }
 }

@@ -118,10 +118,29 @@ impl<'a> PathElement<'a> {
 ///
 /// Defined in [ZIP 32: Registered key derivation][regkd].
 ///
+/// If the `zeroize` feature is enabled, the key material is zeroized on drop.
+///
 /// [regkd]: https://zips.z.cash/zip-0032#specification-registered-key-derivation
 pub struct SecretKey {
     inner: HardenedOnlyKey<Registered>,
 }
+
+impl core::fmt::Debug for SecretKey {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        // Deliberately redacted: do not print secret key material.
+        f.debug_struct("SecretKey").finish_non_exhaustive()
+    }
+}
+
+#[cfg(feature = "zeroize")]
+impl zeroize::Zeroize for SecretKey {
+    fn zeroize(&mut self) {
+        self.inner.zeroize();
+    }
+}
+
+#[cfg(feature = "zeroize")]
+impl zeroize::ZeroizeOnDrop for SecretKey {}
 
 impl SecretKey {
     /// Derives a key for a registered application protocol at the given path from the
@@ -209,6 +228,9 @@ impl SecretKey {
     /// Defined in [ZIP 32: Full-width child cryptovalue derivation][fwccd].
     ///
     /// [fwccd]: https://zips.z.cash/zip-0032#full-width-child-cryptovalue-derivation
+    ///
+    /// The returned cryptovalue is secret key material; the caller is responsible for
+    /// zeroizing it once it is no longer needed.
     pub fn derive_child_cryptovalue(&self, index: ChildIndex, tag: &[u8]) -> [u8; 64] {
         self.inner.ckdh_internal(index, 1, tag)
     }

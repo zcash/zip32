@@ -118,6 +118,20 @@ where
     f(ikm)
 }
 
+/// Zeroizes key parts that have been copied out of a key type.
+///
+/// This is a no-op unless the `zeroize` feature is enabled.
+#[inline]
+#[allow(unused_variables)]
+pub(crate) fn zeroize_parts(sk: &mut [u8; 32], chain_code: &mut ChainCode) {
+    #[cfg(feature = "zeroize")]
+    {
+        use zeroize::Zeroize;
+        sk.zeroize();
+        chain_code.zeroize();
+    }
+}
+
 // ZIP 32 structures
 
 /// A child index for a derived key.
@@ -184,6 +198,15 @@ impl ChainCode {
     /// [ZIP 32](https://zips.z.cash/zip-0032) encoding.
     pub fn as_bytes(&self) -> &[u8; 32] {
         &self.0
+    }
+}
+
+/// `ChainCode` is `Copy`, so it cannot implement `ZeroizeOnDrop`; types that own a
+/// `ChainCode` alongside secret key material are responsible for zeroizing it.
+#[cfg(feature = "zeroize")]
+impl zeroize::Zeroize for ChainCode {
+    fn zeroize(&mut self) {
+        self.0.zeroize();
     }
 }
 

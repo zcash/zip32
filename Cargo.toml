@@ -1,6 +1,6 @@
 [package]
 name = "zip32"
-version = "0.2.1"
+version = "0.3.0"
 authors = [
     "Jack Grigg <jack@electriccoin.co>",
     "Kris Nuttycombe <kris@electriccoin.co>",
@@ -11,7 +11,7 @@ homepage = "https://github.com/zcash/zip32"
 repository = "https://github.com/zcash/zip32"
 license = "MIT OR Apache-2.0"
 edition = "2021"
-rust-version = "1.60"
+rust-version = "1.85"
 
 [dependencies]
 bech32 = { version = "0.11", default-features = false, features = ["alloc"] }

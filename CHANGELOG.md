@@ -21,6 +21,7 @@ and this library adheres to Rust's notion of
   `impl Debug for zip32::arbitrary::SecretKey` (redacted).
 
 ### Changed
+- MSRV is now 1.85.0.
 - `impl Debug for zip32::hardened_only::HardenedOnlyKey` no longer prints the
   secret key material; it now renders as `HardenedOnlyKey { .. }`.
 

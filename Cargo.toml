@@ -1,6 +1,6 @@
 [package]
 name = "zip32"
-version = "0.2.1"
+version = "0.3.0"
 authors = [
     "Jack Grigg <jack@electriccoin.co>",
     "Kris Nuttycombe <kris@electriccoin.co>",

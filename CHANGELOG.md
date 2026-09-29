@@ -7,9 +7,10 @@ and this library adheres to Rust's notion of
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-29
+
 ### Added
-- `zeroize` feature flag (enabled by default), which enables the `zeroize`
-  dependency (without its default features, so `no_std` is preserved) and:
+- `zeroize` feature flag (enabled by default), which enables:
   - `impl zeroize::Zeroize for zip32::ChainCode`
   - `impl zeroize::{Zeroize, ZeroizeOnDrop} for zip32::hardened_only::HardenedOnlyKey`
   - `impl zeroize::{Zeroize, ZeroizeOnDrop} for zip32::registered::SecretKey`
